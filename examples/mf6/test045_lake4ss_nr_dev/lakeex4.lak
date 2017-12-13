@@ -2,8 +2,8 @@ begin options
   print_input
   print_flows
   boundnames
-  groundwater_head_conductance
-  #maximum_percent_difference 0.99
+  DEV_GROUNDWATER_HEAD_CONDUCTANCE
+  #DEV_MAXIMUM_PERCENT_DIFFERENCE 0.99
   OBS6 FILEIN lakeex4.lak.obs
 end options
 

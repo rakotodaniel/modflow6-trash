@@ -1,7 +1,5 @@
 begin options
   PRINT_OPTION ALL
-  #NO_PTC
-  #PTC_DEL0 12500.
 end options
 
 begin nonlinear

@@ -5,9 +5,9 @@ BEGIN Options
   PRINT_FLOWS
   SAVE_FLOWS
   MOVER
-  groundwater_head_conductance
+  DEV_GROUNDWATER_HEAD_CONDUCTANCE
   length_conversion 3.28081 
-  #no_final_check
+  #DEV_NO_FINAL_CHECK
   OBS6 FILEIN uzfp3_lakmvr_v2_lak.obs
 END Options
 

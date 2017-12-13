@@ -1,7 +1,6 @@
 # STO8 input file, prepared by MF5to6 on 3/8/2017 at 13:18:14.
 
 BEGIN Options
-  NO_NEWTON
 END Options
 
 BEGIN GRIDDATA

@@ -2,7 +2,7 @@ begin options
   print_input
   print_flows
   boundnames
-  groundwater_head_conductance
+  DEV_GROUNDWATER_HEAD_CONDUCTANCE
   #newton
 end options
 

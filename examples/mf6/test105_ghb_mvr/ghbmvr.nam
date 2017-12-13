@@ -9,7 +9,7 @@ BEGIN Packages
   OC6        ghbmvr.oc
   GHB6       ghbmvr.ghb
   CHD6       ghbmvr.ibound.chd  'CHD-FROM-IBOUND' 
-  MAW6       ghbmvr.maqw
+  MAW6       ghbmvr.maw
   MVR6       ghbmvr.mvr
 END Packages
 

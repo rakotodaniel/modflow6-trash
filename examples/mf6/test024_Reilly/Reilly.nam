@@ -8,7 +8,7 @@ BEGIN PACKAGES
   OC6           Reilly.oc
   DIS6          Reilly.dis
   CHD6          Reilly.chd
-  MAW6          Reilly.maw8  'MAW-NT_Well' (16 character limit)
+  MAW6          Reilly.maw  'MAW-NT_Well' (16 character limit)
   RCH6          Reilly.rch
   OBS6          Reilly.obs
 END PACKAGES

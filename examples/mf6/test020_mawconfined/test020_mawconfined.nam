@@ -8,6 +8,6 @@ BEGIN Packages
   NPF6       test020_mawconfined.npf
   STO6       test020_mawconfined.sto
   OC6        test020_mawconfined.oc
-  MAW6       test020_mawconfined.maw8  'MAW_1'           
+  MAW6       test020_mawconfined.maw  'MAW_1'           
 END Packages
 

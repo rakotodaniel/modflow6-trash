@@ -1,0 +1,14 @@
+#option block.  Note -- no comments allowed on auxiliary line
+begin options
+  PRINT_INPUT
+  PRINT_FLOWS
+  SAVE_FLOWS
+end options
+
+begin dimensions
+  MAXBOUND 87
+end dimensions
+
+begin period 1
+  open/close arrays/wells.dat
+end period

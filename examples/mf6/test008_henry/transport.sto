@@ -1,0 +1,9 @@
+begin options
+  SAVE_FLOWS
+end options
+#
+begin period 1
+  POROSITY
+    constant 0.35
+end period
+

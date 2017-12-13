@@ -4,7 +4,6 @@ BEGIN Options
   PRINT_INPUT
   PRINT_FLOWS
   SAVE_FLOWS
-  NO_NEWTON
 END Options
 
 BEGIN Dimensions

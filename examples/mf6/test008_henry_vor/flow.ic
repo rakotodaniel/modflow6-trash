@@ -1,0 +1,5 @@
+BEGIN GRIDDATA
+strt
+  open/close arrays/strt.dat FACTOR  1  IPRN
+END GRIDDATA
+

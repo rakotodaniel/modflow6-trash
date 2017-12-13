@@ -1,0 +1,17 @@
+begin options
+  print_input
+end options
+
+begin single FILEOUT conc_obs.csv
+  cobs18-1.0    concentration  10000.0  18
+  cobs20-1.0    concentration  10000.0  20
+  cobs99-1.0    concentration  10000.0  99
+  mfobs19-20-1  mass-flow      10000.0  19  20
+end single
+
+begin continuous FILEOUT conc_break.csv
+  conc18        concentration   18
+  conc20        concentration   20
+  conc99        concentration   99
+  mfcon19-20    mass-flow       19  20
+end continuous

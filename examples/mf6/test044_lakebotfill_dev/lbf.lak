@@ -2,8 +2,8 @@ begin options
   print_input
   print_flows
   boundnames
-  groundwater_head_conductance
-  #no_final_residual_check
+  DEV_GROUNDWATER_HEAD_CONDUCTANCE
+  #DEV_NO_FINAL_RESIDUAL_CHECK
   OBS6 FILEIN        lbf.lak.obs
   #newton
 end options

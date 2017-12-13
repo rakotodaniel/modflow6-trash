@@ -7,7 +7,7 @@ BEGIN Options
   STAGE FILEOUT lak-1.stage.bin
   BUDGET FILEOUT lak-1.cbc
   MOVER
-  groundwater_head_conductance
+  DEV_GROUNDWATER_HEAD_CONDUCTANCE
   TIME_CONVERSION    86400.000 
 END Options
 

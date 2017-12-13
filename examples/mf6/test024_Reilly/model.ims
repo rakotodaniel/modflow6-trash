@@ -1,6 +1,4 @@
 begin options
-  PRINT_OPTION SUMMARY
-  #no_ptc
 end options
 
 begin nonlinear

@@ -1,0 +1,32 @@
+# Structured discretization file for MODFLOW-USG
+begin options
+  LENGTH_UNITS meters
+end options
+
+begin dimensions
+  nodes 1619
+  nja 11045
+end dimensions
+
+BEGIN GRIDDATA
+  top
+    constant 1.
+  bot
+    constant 0.
+  area
+    open/close 'arrays/area.dat' FACTOR  1.0  IPRN
+END GRIDDATA
+
+begin connectiondata
+  ihc
+    constant 1
+  iac
+    open/close 'arrays/iac.dat' FACTOR  1  IPRN
+  ja
+    open/close 'arrays/ja.dat' FACTOR  1  IPRN
+  cl12
+    open/close 'arrays/cl12.dat' FACTOR  1.0  IPRN
+  hwva
+    open/close 'arrays/fahl.dat' FACTOR  1.0  IPRN
+end connectiondata	
+END GRIDDATA

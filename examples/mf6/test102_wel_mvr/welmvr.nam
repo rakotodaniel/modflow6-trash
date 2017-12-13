@@ -9,7 +9,7 @@ BEGIN Packages
   OC6        welmvr.oc
   WEL6       welmvr.wel
   CHD6       welmvr.ibound.chd  'CHD-FROM-IBOUND' 
-  MAW6       welmvr.maqw
+  MAW6       welmvr.maw
   MVR6       welmvr.mvr
 END Packages
 

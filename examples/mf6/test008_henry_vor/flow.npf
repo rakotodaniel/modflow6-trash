@@ -1,0 +1,17 @@
+begin options
+  PRINT_FLOWS
+  SAVE_FLOWS
+end options
+
+BEGIN GRIDDATA
+
+  icelltype
+    constant 0
+
+  K
+    constant 864.
+
+  K33
+    constant 864.
+
+END GRIDDATA

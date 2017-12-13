@@ -1,7 +1,6 @@
 begin options
   SAVE_FLOWS
 end options
-#
 
 BEGIN GRIDDATA
   #iconvert(nodes) is 0:confined, 1:convertible
@@ -12,7 +11,7 @@ BEGIN GRIDDATA
     constant 1.e-4
   #sy(nodes) specific yield
   sy
-    constant 0.1
+    constant 0.0 
 END GRIDDATA
 
 begin period 1

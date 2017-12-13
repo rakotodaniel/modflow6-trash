@@ -9,7 +9,7 @@ BEGIN Packages
   OC6        drnmvr.oc
   DRN6       drnmvr.drn
   CHD6       drnmvr.ibound.chd  'CHD-FROM-IBOUND' 
-  MAW6       drnmvr.maqw
+  MAW6       drnmvr.maw
   MVR6       drnmvr.mvr
 END Packages
 

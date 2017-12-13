@@ -9,6 +9,6 @@ BEGIN Packages
   NPF6       mf6.npf6
   STO6       mf6.sto6
   OC6        mf6.oc6
-  MAW6       mf6.maw6  'MAW_1'           
+  MAW6       mf6.maw  'MAW_1'           
 END Packages
 

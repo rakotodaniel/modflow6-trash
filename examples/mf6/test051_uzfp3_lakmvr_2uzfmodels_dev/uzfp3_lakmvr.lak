@@ -4,7 +4,7 @@ BEGIN Options
   PRINT_INPUT
   PRINT_FLOWS
   MOVER
-  groundwater_head_conductance
+  DEV_GROUNDWATER_HEAD_CONDUCTANCE
   length_conversion 3.28081 
 END Options
 

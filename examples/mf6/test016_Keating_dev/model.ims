@@ -1,8 +1,8 @@
 begin options
   PRINT_OPTION ALL
-  #NO_PTC
-  PTC_DEL0 12500.
-  PTC_OUTPUT FILEOUT ptc.output.out
+  #DEV_NO_PTC
+  DEV_PTC_DEL0 12500.
+  DEV_PTC_OUTPUT FILEOUT PTC.OUTPUT.OUT
 end options
 
 begin nonlinear

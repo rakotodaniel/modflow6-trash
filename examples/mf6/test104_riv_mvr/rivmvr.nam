@@ -9,7 +9,7 @@ BEGIN Packages
   OC6        rivmvr.oc
   RIV6       rivmvr.riv
   CHD6       rivmvr.ibound.chd  'CHD-FROM-IBOUND' 
-  MAW6       rivmvr.maqw
+  MAW6       rivmvr.maw
   MVR6       rivmvr.mvr
 END Packages
 

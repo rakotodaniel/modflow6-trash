@@ -9,7 +9,7 @@ BEGIN PACKAGES
   DIS6          MNW2-Fig28.dis
   CHD6          MNW2-Fig28.chd
   WEL6          MNW2-Fig28.wel
-  MAW6          MNW2-Fig28.maqw  'MAW-NT_Well' (16 character limit)
+  MAW6          MNW2-Fig28.maw  'MAW-NT_Well' (16 character limit)
   RCH6          MNW2-Fig28.rch
   OBS6          MNW2-Fig28.obs
 END PACKAGES

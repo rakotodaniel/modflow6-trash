@@ -5,7 +5,7 @@ BEGIN Options
   PRINT_STAGE
   PRINT_FLOWS
   TIME_CONVERSION    86400.000    
-  groundwater_head_conductance
+  DEV_GROUNDWATER_HEAD_CONDUCTANCE
 END Options
 
 BEGIN Dimensions

@@ -2,10 +2,10 @@ begin options
   print_input
   print_flows
   boundnames
-  groundwater_head_conductance
+  DEV_GROUNDWATER_HEAD_CONDUCTANCE
   time_conversion 86400.
   length_conversion 3.28081
-  MAXIMUM_OUTLET_DEPTH 1000.
+  DEV_MAXIMUM_OUTLET_DEPTH 1000.
   OBS6 FILEIN lakeex2a.lak.obs
   TS6 FILEIN lake_xsfrc.ts
   BUDGET FILEOUT lak.cbc

@@ -3,7 +3,6 @@
 BEGIN Options
   PRINT_OPTION SUMMARY
   COMPLEXITY  SIMPLE
-  no_ptc
 END Options
 
 BEGIN Nonlinear

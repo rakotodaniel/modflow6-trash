@@ -1,6 +1,6 @@
 begin options
   PRINT_OPTION ALL
-  PTC_OUTPUT FILEOUT ptc.output.out
+  DEV_PTC_OUTPUT FILEOUT PTC.OUTPUT.OUT
 end options
 
 begin nonlinear
