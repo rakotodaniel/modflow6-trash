@@ -139,5 +139,4 @@ script:
     - python --version
     - which nosetests
     - nosetests --version
-    - cd autotest
-    - nosetests -v --with-id --with-timer
+    - nosetests -v --with-id --with-timer -w ./autotest

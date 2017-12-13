@@ -246,7 +246,7 @@ def test_build_lgr():
     os.chdir(dstpth)
 
     # Set dir name
-    dirname = mfusgdir
+    dirname = mflgrdir
     srcdir = os.path.join(dirname, 'src')
 
     # Download the MODFLOW-LGR distribution
