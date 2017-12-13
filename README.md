@@ -7,7 +7,7 @@
 
 ## Automated Testing Status on Travis-CI
 
-### Version 6.0.1 subsidence &mdash; build 6
+### Version 6.0.1 subsidence &mdash; build 11
 [![Build Status](https://travis-ci.org/MODFLOW-USGS/modflow6.svg?branch=subsidence)](https://travis-ci.org/MODFLOW-USGS/modflow6)
 
 ## Introduction
@@ -36,4 +36,4 @@ MODFLOW 6 is the latest core version of MODFLOW. It synthesizes many of the capa
 
 ## Instructions for building definition files for new packages
 
-Instructions for building definition files for new packages are summarized in [doc/mf6io/mf6ivar/readme.md](doc/mf6io/mf6ivar/readme.md)
+Instructions for building definition files for new packages are summarized in [doc/mf6io/mf6ivar/readme.md](doc/mf6io/mf6ivar/readme.md).
