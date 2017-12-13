@@ -1,0 +1,17 @@
+begin options
+  SAVE_FLOWS
+  #STORAGECOEFFICIENT uncomment if SS is entered as storage coefficient
+end options
+#
+begin period 1
+  #iconvert(nodes) is 0:confined, 1:convertible
+  iconvert
+    constant 1
+  #ss(nodes) specific storage
+  ss
+    constant 1.e-15
+  #sy(nodes) specific yield
+  sy
+    constant 1.0
+end period
+

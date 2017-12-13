@@ -1,0 +1,31 @@
+# Unstructured discretization file for MODFLOW-USG
+begin options
+  LENGTH_UNITS meters
+end options
+
+begin dimensions
+  nodes 4
+  nja   10
+end dimensions
+#
+BEGIN GRIDDATA
+  fleng
+INTERNAL  FACTOR         1.0           IPRN         1  fleng
+   50.0   100.0   100.0   100.0
+  felev
+    constant -10.0
+  fangle
+    constant    0.0000
+END GRIDDATA
+
+#
+begin connectiondata
+  iac
+    external 'model3.disu.dat' 1 IPRN
+  ja
+    external 'model3.disu.dat' 1 IPRN
+end connectiondata
+
+
+
+

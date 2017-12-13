@@ -1,0 +1,19 @@
+
+begin options
+  PRINT_INPUT
+  PRINT_FLOWS
+  SAVE_FLOWS
+  NEWTON
+#  AUXILIARY testaux
+end options
+
+begin dimensions
+  NEXG 1
+end dimensions
+
+  # nodem1 nodem2  ifdc Icelltype Iflowtype FlenGW Fskin1 Fskin2
+begin exchangedata
+#
+     1 3 6      1    0         1         3    50.0    1.0   1.0
+end exchangedata
+

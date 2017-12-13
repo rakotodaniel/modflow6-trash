@@ -1,0 +1,13 @@
+BEGIN OPTIONS
+END OPTIONS
+
+BEGIN PACKAGES
+DIS6           model3.dis
+GEO6          model3.geo
+IC6            model3.ic
+NPF6           model3.npf
+OC6            model3.oc
+STO6          model3.sto
+data          model3.disu.dat
+END PACKAGES
+
