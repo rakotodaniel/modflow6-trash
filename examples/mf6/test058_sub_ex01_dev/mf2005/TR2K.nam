@@ -1,0 +1,9 @@
+LIST                    51      tr2k2.lst
+BAS6                     1      TR2K.ba6
+DIS                     10      TR2K.dis
+BCF6                    11      TR2K.bc6
+SIP                     13      tr.sip
+OC                      15      tr.oc
+SUB                     19      tr2k.su1
+DATA(BINARY)            21      tr2k.hds REPLACE
+DATA(BINARY)            95      tr2k.total_comp.hds REPLACE

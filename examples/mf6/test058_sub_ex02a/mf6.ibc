@@ -1,0 +1,22 @@
+BEGIN OPTIONS
+ BOUNDNAMES
+ STORAGECOEFFICIENT
+ CONSTANT_THICKNESS
+ OBS6 FILEIN mf6.ibc.obs
+END OPTIONS
+
+BEGIN DIMENSIONS
+  NIBCCELLS 1
+END DIMENSIONS
+
+BEGIN GRIDDATA
+    SGS LAYERED
+        CONSTANT 0.0
+    SGM LAYERED
+        CONSTANT 0.0
+END GRIDDATA
+
+BEGIN PACKAGEDATA
+#ibcno      cellid  cdelay  pcs0 bt_frac  rnb ssv_cc sse_cr void    kv    h0 boundnames
+     1   1   1   1 nodelay   0.0    20.0  1.0  0.005  5e-05 0.82 1.08e-05  0 dsystm0
+END PACKAGEDATA

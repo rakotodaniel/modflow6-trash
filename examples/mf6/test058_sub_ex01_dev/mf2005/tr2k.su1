@@ -1,0 +1,11 @@
+  1  1  0  1  1 10  0.0  1.0  5  -1  -1
+  1                                                  delay layer assignment
+         0         1                               0 no. of layers
+     0.025       1.0      100.                    Kv Sske Sskv
+         0        1.                              Dstart     L1
+         0        1.                              DHC        L1
+         0        0.                              DCOM       L1
+         0       1.0                              DZ         L1
+         0         1                              NZ         L1
+12 0 12 95 12 0 12 0 12 0 12 0                    #dataset 15
+1 1 1 1000 1 0 1 1 1 0 1 0 1 0 1 0 1              #dataset 16 isuboc 1

@@ -29,21 +29,10 @@ def get_mf6_models():
         Get a list of test models
     """
     # tuple of example files to exclude
-    exclude = ('test006_03models',
-               'test018_NAC',
-               'test051_uzf1d_a')
-
-    exclude_nongwf = ('test006_gwf3_transport',
-                      'test006_Gwf1-Lnf1',
-                      'test008_henry',
-                      'test008_henry_vor',
-                      'test008_henry_vor2',
-                      'test047_swi_island_cz',
-                      'test047_swi_island_cz_1d',
-                      'test047_swi_island_cz_2d')
+    exclude = ('test058_sub_ex02b')
 
     # build list of directories with valid example files
-    exclude = list(exclude + exclude_nongwf)
+    exclude = list(exclude)
     dirs = [d for d in os.listdir(exdir)
             if 'test' in d and d not in exclude]
     # sort in numerical order for case sensitive os

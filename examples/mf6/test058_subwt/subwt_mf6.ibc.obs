@@ -1,0 +1,15 @@
+begin options
+  digits 20
+  print_input
+end options
+
+begin Continuous FILEOUT mf6.ibc.csv
+  w1l1 total-compaction   90
+  w1l2 total-compaction  300
+  w1l3 total-compaction  510
+  w1l4 total-compaction  720
+  w2l1 total-compaction  131
+  w2l2 total-compaction  341
+  w2l3 total-compaction  551
+  w2l4 total-compaction  761
+end Continuous

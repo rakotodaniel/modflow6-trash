@@ -1,0 +1,15 @@
+BEGIN Options
+  LIST       subwt_mf6.lst
+END Options
+
+BEGIN Packages
+  DIS6       subwt_mf6.dis6
+  IC6        subwt_mf6.ic6
+  NPF6       subwt_mf6.npf6
+  STO6       subwt_mf6.sto6
+  OC6        subwt_mf6.oc6
+  WEL6       subwt_mf6.wel6
+  CHD6       subwt_mf6.ib.ibound.chd6  'CHD-FROM-IBOUND' 
+  IBC6       subwt_mf6.ibc
+END Packages
+

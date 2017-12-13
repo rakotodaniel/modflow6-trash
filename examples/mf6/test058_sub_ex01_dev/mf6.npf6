@@ -1,0 +1,12 @@
+# NPF6 input file, prepared by MF5to6 on 11/9/2017 at 9:38:10.
+
+BEGIN Options
+  PERCHED
+END Options
+
+BEGIN GRIDDATA
+  Icelltype LAYERED
+    CONSTANT  0
+  K  LAYERED
+    CONSTANT    1.00000000    
+END GRIDDATA

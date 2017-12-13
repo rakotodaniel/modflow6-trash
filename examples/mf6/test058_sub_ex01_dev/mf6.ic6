@@ -1,0 +1,9 @@
+# IC6 input file, prepared by MF5to6 on 11/9/2017 at 9:38:10.
+
+BEGIN Options
+END Options
+
+BEGIN GRIDDATA
+  STRT LAYERED
+    CONSTANT    0.000000    
+END GRIDDATA
