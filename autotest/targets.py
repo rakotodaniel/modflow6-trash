@@ -8,7 +8,6 @@ def target_pth(target, pth):
     if exe_exists is None:
         target = os.path.abspath(os.path.join(pth, target))
     else:
-        print(target)
         target = os.path.abspath(exe_exists)
     return target
 
