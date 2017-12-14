@@ -39,6 +39,8 @@ module TimerModule
 !
 !        SPECIFICATIONS:
 ! ------------------------------------------------------------------------------
+    ! -- modules 
+    use MpiExchangeModule, only: mpi_barrier_world !JV
     ! -- dummy
     integer(i4b), intent(in) :: iout
     integer(I4B), intent(in) :: iprtim
@@ -55,7 +57,9 @@ module TimerModule
 !
 !     Get current date and time, assign to IEDT, and write.
       CALL DATE_AND_TIME(VALUES=IEDT)
+      call mpi_barrier_world() !JV 
       WRITE(*,1000) (IEDT(I),I=1,3),(IEDT(I),I=5,7)
+      call mpi_barrier_world() !JV 
  1000 FORMAT(1X,'Run end date and time (yyyy/mm/dd hh:mm:ss): ',               &
              I4,'/',I2.2,'/',I2.2,1X,I2,':',I2.2,':',I2.2)
       IF(IPRTIM.GT.0) THEN

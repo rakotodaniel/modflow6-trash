@@ -16,7 +16,7 @@ module NumericalExchangeModule
 
   type, extends(BaseExchangeType) :: NumericalExchangeType
     character(len=LINELENGTH), pointer           :: filename                    !name of the input file
-    character(len=7), pointer                    :: typename                    !name of the type (e.g., 'NM-NM')
+    character(len=9), pointer                    :: typename                    !name of the type (e.g., 'NM-NM') !JV
     logical, pointer                             :: implicit                    !logical flag to indicate implicit or explict exchange
     integer(I4B), pointer                        :: iprpak                      !print input flag
     integer(I4B), pointer                        :: iprflow                     !print flag for cell by cell flows

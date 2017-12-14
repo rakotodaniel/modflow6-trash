@@ -160,7 +160,7 @@ contains
     use SimVariablesModule, only: iout
     use InputOutputModule,  only: getunit, openfile
     ! -- dummy
-    character(len=*),intent(in) :: filename
+    character(len=*),intent(inout) :: filename !JV
     integer(I4B),intent(in) :: id
     ! -- local
     integer(I4B) :: inunit

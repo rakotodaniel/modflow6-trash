@@ -54,7 +54,7 @@
     use InputOutputModule, only: getunit, openfile
     use ConstantsModule, only: LINELENGTH, DZERO
     ! -- dummy
-    character(len=*),intent(in) :: fname
+    character(len=*),intent(inout) :: fname !JV
     ! -- local
     integer(I4B) :: inunit
     ! -- formats

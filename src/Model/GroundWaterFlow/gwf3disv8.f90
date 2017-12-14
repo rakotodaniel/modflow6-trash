@@ -854,8 +854,9 @@ module GwfDisvModule
     inquire(unit=this%inunit, name=fname)
     fname = trim(fname) // '.grb'
     iunit = getunit()
-    write(this%iout, fmtgrdsave) iunit, trim(adjustl(fname))
-    call openfile(iunit, this%iout, trim(adjustl(fname)), 'DATA(BINARY)',      &
+    write(this%iout, fmtgrdsave) iunit, adjustl(fname)
+    fname = adjustl(fname) !JV
+    call openfile(iunit, this%iout, fname, 'DATA(BINARY)',                     & !JV
                   form, access, 'REPLACE')
     !
     ! -- write header information

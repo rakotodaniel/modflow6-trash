@@ -1083,7 +1083,7 @@ contains
     ! -- dummy
     class(LakType), intent(inout) :: this
     integer(I4B), intent(in) :: ilak
-    character (len=*), intent(in) :: filename
+    character (len=*), intent(inout) :: filename !JV
 
     ! -- local
     character(len=LINELENGTH) :: errmsg

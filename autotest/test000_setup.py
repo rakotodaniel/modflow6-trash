@@ -77,6 +77,7 @@ def set_compiler():
 
 
 def test_build_modflow():
+    global starget
     starget = 'MODFLOW-2005'
 
     fct, cct = set_compiler()
@@ -107,12 +108,12 @@ def test_build_modflow():
     pymake.download_and_unzip(url)
 
     # compile code
-    print('compiling...{}'.format(os.path.relpath(target)))
+    print('compiling...{}'.format(os.path.abspath(target)))
     pymake.main(srcdir, target, fct, cct, makeclean=True,
                 expedite=False, dryrun=False, double=True, debug=False)
 
-    msg = '{} does not exist.'.format(os.path.relpath(target))
-    assert os.path.isfile(target), msg
+    msg = '{} does not exist.'.format(os.path.abspath(target))
+    assert os.path.isfile(target+'.exe'), msg
 
     # change back to original path
     os.chdir(cpth)
@@ -126,6 +127,7 @@ def test_build_modflow():
 
 
 def test_build_mfnwt():
+    global starget
     starget = 'MODFLOW-NWT'
 
     fct, cct = set_compiler()
@@ -156,12 +158,12 @@ def test_build_mfnwt():
     pymake.download_and_unzip(url)
 
     # compile code
-    print('compiling...{}'.format(os.path.relpath(target)))
+    print('compiling...{}'.format(os.path.abspath(target)))
     pymake.main(srcdir, target, fct, cct, makeclean=True,
                 expedite=False, dryrun=False, double=True, debug=False)
 
-    msg = '{} does not exist.'.format(os.path.relpath(target))
-    assert os.path.isfile(target), msg
+    msg = '{} does not exist.'.format(os.path.abspath(target))
+    assert os.path.isfile(target+'.exe'), msg
 
     # change back to original path
     os.chdir(cpth)
@@ -175,6 +177,7 @@ def test_build_mfnwt():
 
 
 def test_build_usg():
+    global starget
     starget = 'MODFLOW-USG'
 
     fct, cct = set_compiler()
@@ -205,12 +208,12 @@ def test_build_usg():
     pymake.download_and_unzip(url)
 
     # compile code
-    print('compiling...{}'.format(os.path.relpath(target)))
+    print('compiling...{}'.format(os.path.abspath(target)))
     pymake.main(srcdir, target, fct, cct, makeclean=True,
                 expedite=False, dryrun=False, double=True, debug=False)
 
-    msg = '{} does not exist.'.format(os.path.relpath(target))
-    assert os.path.isfile(target), msg
+    msg = '{} does not exist.'.format(os.path.abspath(target))
+    assert os.path.isfile(target+'.exe'), msg
 
     # change back to original path
     os.chdir(cpth)
@@ -224,9 +227,10 @@ def test_build_usg():
 
 
 def test_build_lgr():
+    global starget
     starget = 'MODFLOW-LGR'
 
-    fct, cct = set_compiler()
+    fct, cct = set_compiler(starget)
 
     # set up target
     target = os.path.abspath(os.path.join(ebindir, 'mflgrdbl'))
@@ -254,12 +258,12 @@ def test_build_lgr():
     pymake.download_and_unzip(url)
 
     # compile code
-    print('compiling...{}'.format(os.path.relpath(target)))
+    print('compiling...{}'.format(os.path.abspath(target)))
     pymake.main(srcdir, target, fct, cct, makeclean=True,
                 expedite=False, dryrun=False, double=True, debug=False)
 
-    msg = '{} does not exist.'.format(os.path.relpath(target))
-    assert os.path.isfile(target), msg
+    msg = '{} does not exist.'.format(os.path.abspath(target))
+    assert os.path.isfile(target+'.exe'), msg
 
     # change back to original path
     os.chdir(cpth)
@@ -284,10 +288,12 @@ def test_build_modflow6():
     target = os.path.join('..', 'bin', 'mf6')
     srcdir2 = None
 
+    global starget
+    starget = 'MODFLOW 6'
     build(srcdir, srcdir2, target, 'MODFLOW 6')
 
-    msg = '{} does not exist.'.format(os.path.relpath(target))
-    assert os.path.isfile(target), msg
+    msg = '{} does not exist.'.format(os.path.abspath(target))
+    assert os.path.isfile(target+'.exe'), msg
 
 
 def test_build_mf5to6():
@@ -309,8 +315,8 @@ def test_build_mf5to6():
     build(srcdir, srcdir2, target, 'MODFLOW 5 to 6 converter',
           extrafiles=extrafiles)
 
-    msg = '{} does not exist.'.format(os.path.relpath(target))
-    assert os.path.isfile(target), msg
+    msg = '{} does not exist.'.format(os.path.abspath(target))
+    assert os.path.isfile(target+'.exe'), msg
 
 
 def test_build_zonebudget():
@@ -331,8 +337,8 @@ def test_build_zonebudget():
     build(srcdir, srcdir2, target, 'ZONEBUDGET for MODFLOW 6',
           extrafiles=extrafiles)
 
-    msg = '{} does not exist.'.format(os.path.relpath(target))
-    assert os.path.isfile(target), msg
+    msg = '{} does not exist.'.format(os.path.abspath(target))
+    assert os.path.isfile(target+'.exe'), msg
 
 
 def rebuild_exe(target, starget):
@@ -405,11 +411,11 @@ def build(srcdir, srcdir2, target, starget, extrafiles=None):
 
 if __name__ == "__main__":
     test_create_dirs()
-    test_build_modflow()
-    test_build_mfnwt()
-    test_build_usg()
-    test_build_lgr()
+    #test_build_modflow()
+    #test_build_mfnwt()
+    #test_build_usg()
+    #test_build_lgr()
     test_build_modflow6()
-    test_build_mf5to6()
-    test_build_zonebudget()
+    #test_build_mf5to6()
+    #test_build_zonebudget()
     
