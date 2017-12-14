@@ -27,6 +27,9 @@ program mf6
                                     final_message
   use TdisModule,             only: tdis_tu, tdis_da,                          &
                                     endofsimulation
+  use MpiExchangeModule,      only: mpi_initialize, serialrun,                 & !JV
+                                    nrprocstr, writestd !JV 
+  use MpiExchangeModule,      only: mpi_debug !JV DEBUG
   implicit none
   ! -- local
   class(SolutionGroupType), pointer :: sgp
@@ -39,10 +42,16 @@ program mf6
   ! -- formats
 ! ------------------------------------------------------------------------------
   !
+  ! -- Initialize MPI if required
+  call mpi_initialize() !JV
+  !call mpi_debug() !JV
+  !
   ! -- Write banner to screen (unit 6) and start timer
   call write_centered('MODFLOW'//MFVNAM, ISTDOUT, 80)
   call write_centered(MFTITLE, ISTDOUT, 80)
   call write_centered('VERSION '//VERSION, ISTDOUT, 80)
+  if (.not.serialrun) call write_centered('***RUNNING IN PARALLEL MODE WITH '& !JV
+    //TRIM(nrprocstr)//' MPI PROCESSES***',ISTDOUT, 80) !JV
   !
   ! -- Write if develop mode
   if (IDEVELOPMODE == 1) call write_centered('***DEVELOP MODE***', ISTDOUT, 80)
@@ -53,7 +62,7 @@ program mf6
   call write_centered(trim(adjustl(compiler)), ISTDOUT, 80)
   !
   ! -- Write disclaimer
-  write(ISTDOUT, FMTDISCLAIMER)
+  if (writestd) write(ISTDOUT, FMTDISCLAIMER) !JV
   ! -- get start time
   call start_time()
   !
