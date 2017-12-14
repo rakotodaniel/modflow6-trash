@@ -17,10 +17,17 @@ mflgrdir = 'mflgr.2_0'
 mflgrurl = 'https://water.usgs.gov/ogw/modflow-lgr/modflow-lgr-v2.0.0/mflgrv2_0_00.zip'
 
 # paths to executables for  previous versions of MODFLOW
-ebindir = os.path.join(os.path.expanduser('~'), '.local', 'bin')
+ebindir = os.path.abspath(os.path.join(os.path.expanduser('~'), '.local', 'bin'))
 
 fc = 'gfortran'
 cc = 'gcc'
+
+# make sure exe extension is used on windows
+eext = ''
+sysinfo = platform.system()
+if sysinfo.lower() == 'windows':
+    eext = '.exe'
+
 
 def create_dir(pth):
     # remove pth directory if it exists
@@ -84,6 +91,7 @@ def test_build_modflow():
 
     # set up target
     target = os.path.abspath(os.path.join(ebindir, 'mf2005dbl'))
+    target += eext
     
     rebuild = rebuild_exe(target, starget)
     if not rebuild:
@@ -134,6 +142,7 @@ def test_build_mfnwt():
 
     # set up target
     target = os.path.abspath(os.path.join(ebindir, 'mfnwtdbl'))
+    target += eext
     
     rebuild = rebuild_exe(target, starget)
     if not rebuild:
@@ -184,6 +193,7 @@ def test_build_usg():
 
     # set up target
     target = os.path.abspath(os.path.join(ebindir, 'mfusgdbl'))
+    target += eext
     
     rebuild = rebuild_exe(target, starget)
     if not rebuild:
@@ -234,6 +244,7 @@ def test_build_lgr():
 
     # set up target
     target = os.path.abspath(os.path.join(ebindir, 'mflgrdbl'))
+    target += eext
     
     rebuild = rebuild_exe(target, starget)
     if not rebuild:
@@ -286,6 +297,7 @@ def test_build_modflow6():
     # set source and target paths
     srcdir = os.path.join('..', 'src')
     target = os.path.join('..', 'bin', 'mf6')
+    target += eext
     srcdir2 = None
 
     global starget
@@ -307,6 +319,7 @@ def test_build_mf5to6():
     # set source and target paths
     srcdir = os.path.join('..', 'utils', 'mf5to6', 'src')
     target = os.path.join('..', 'bin', 'mf5to6')
+    target += eext
     srcdir2 = None
     extrafiles = os.path.join('..', 'utils', 'mf5to6', 'pymake',
                               'extrafiles.txt')
@@ -330,6 +343,7 @@ def test_build_zonebudget():
     # set source and target paths
     srcdir = os.path.join('..', 'utils', 'zonebudget', 'src')
     target = os.path.join('..', 'bin', 'zbud6')
+    target += eext
     srcdir2 = None
     extrafiles = os.path.join('..', 'utils', 'zonebudget', 'pymake',
                               'extrafiles.txt')
