@@ -64,6 +64,10 @@ autotest/temp/
 autotest/tempbin/
 autotest/*.html
 
+mod_temp/
+obj_temp/
+src_temp/
+
 .ipynb_checkpoints/
 
 distrib_training/mf6beta*

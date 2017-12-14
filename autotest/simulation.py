@@ -245,9 +245,9 @@ class Simulation(object):
                     shutil.rmtree(self.simpath)
                     success = True
                 except:
-                    logging.debug('Could not remove test ' + self.name)
+                    print('Could not remove test ' + self.name)
                     success = False
                 assert success
             else:
-                logging.debug('Retaining test files')
+                print('Retaining test files')
         return
