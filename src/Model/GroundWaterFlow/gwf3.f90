@@ -26,6 +26,7 @@ module GwfModule
 
   private
   public :: gwf_cr
+  public :: gwf_cr_exchange !JV
   public :: GwfModelType
 
   type, extends(NumericalModelType) :: GwfModelType
@@ -298,6 +299,81 @@ module GwfModule
     return
   end subroutine gwf_cr
 
+  subroutine gwf_cr_exchange(id, modelname) ! JV
+! ******************************************************************************
+! gwf_cr_exchange -- Create a new groundwater flow model object for exchange
+! Subroutine: (1) creates model object and add to exchange modellist
+!             (2) assign values
+! ******************************************************************************
+!
+!    SPECIFICATIONS:
+! ------------------------------------------------------------------------------
+    ! -- modules
+    use ListsModule,                only: exchangemodellist
+    use BaseModelModule,            only: AddBaseModelToList
+    use SimModule,                  only: ustop, store_error, count_errors
+    use InputOutputModule,          only: write_centered
+    use ConstantsModule,            only: VERSION, MFVNAM, MFTITLE,            &
+                                          FMTDISCLAIMER, LINELENGTH,           &
+                                          LENPACKAGENAME, IDEVELOPMODE
+    use CompilerVersion
+    use MemoryManagerModule,        only: mem_allocate
+    use GwfDisModule,               only: dis_cr
+    use GwfDisvModule,              only: disv_cr
+    use GwfDisuModule,              only: disu_cr
+    use GwfNpfModule,               only: npf_cr
+    use Xt3dModule,                 only: xt3d_cr
+    use GwfMvrModule,               only: mvr_cr
+    ! -- dummy
+    integer(I4B), intent(in)      :: id
+    character(len=*), intent(in)  :: modelname
+    ! -- local
+    integer(I4B)                  :: indis6, indisu6, indisv6
+    type(GwfModelType), pointer   :: this
+    class(BaseModelType), pointer :: model
+    integer :: in_dum, iout_dum
+    ! -- format
+! ------------------------------------------------------------------------------
+    !
+    ! -- Allocate a new GWF Model (this) and add it to exchangemodellist
+    allocate(this)
+    call this%allocate_scalars(modelname)
+    model => this   
+    call AddBaseModelToList(exchangemodellist, model)
+    
+    ! -- Assign values
+    this%name = modelname
+    this%macronym = 'GWF'
+    this%id = id
+    !
+    ! -- TODO: to be replaced by optional arguments
+    in_dum = -1
+    iout_dum = -1
+    !
+    ! -- TODO: to be set by MPI Allgather exchange
+    indis6 = 1
+    indisu6 = 0
+    indisv6 = 0
+    !
+    ! -- Create discretization object
+    if(indis6 > 0) then
+      call dis_cr(this%dis, this%name, in_dum, iout_dum) 
+    elseif(indisu6 > 0) then
+      call disu_cr(this%dis, this%name, in_dum, iout_dum)
+    elseif(indisv6 > 0) then
+      call disv_cr(this%dis, this%name, in_dum, iout_dum)
+    endif
+    !
+    ! -- Create packages that are tied directly to model
+    call npf_cr(this%npf, this%name, in_dum, iout_dum)
+    call xt3d_cr(this%xt3d, this%name, in_dum, iout_dum)
+    call gnc_cr(this%gnc, this%name, in_dum, iout_dum)
+    call mvr_cr(this%mvr, this%name, in_dum, iout_dum)
+    !
+    ! -- return
+    return
+  end subroutine gwf_cr_exchange
+    
   subroutine gwf_df(this)
 ! ******************************************************************************
 ! gwf_df -- Define packages of the model

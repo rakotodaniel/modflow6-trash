@@ -24,8 +24,6 @@ module SimulationCreateModule
 
   integer(I4B) :: inunit = 0
   character(len=LENMODELNAME), allocatable, dimension(:) :: modelname
-  character(len=LENMODELNAME), allocatable, dimension(:) :: modelname_mpi !JV
-  integer, allocatable, dimension(:)                     :: modelrank !JV
   type(BlockParserType) :: parser
 
   contains
@@ -347,7 +345,7 @@ module SimulationCreateModule
     ! -- local
     integer(I4B) :: ierr
     logical :: isfound, endOfBlock
-    integer(I4B) :: im, im_mpi !JV
+    integer(I4B) :: im
     character(len=LINELENGTH) :: errmsg
     character(len=LINELENGTH) :: keyword
     character(len=LINELENGTH) :: fname, mname
@@ -360,7 +358,6 @@ module SimulationCreateModule
     if (isfound) then
       write(iout,'(/1x,a)')'READING SIMULATION MODELS'
       im = 0
-      im_mpi = 0 !JV
       do
         call parser%GetNextLine(endOfBlock)
         if (endOfBlock) exit
@@ -380,10 +377,8 @@ module SimulationCreateModule
               add = .true. !JV
             end if !JV
             if (add) then !JV
-            call add_model(im, 'GWF6', mname)
-            call gwf_cr(fname, im, modelname(im))
-            else
-              call add_model(im_mpi, 'GWF6', mname, rank) !JV
+              call add_model(im, 'GWF6', mname)
+              call gwf_cr(fname, im, modelname(im))
             endif !JV
           case default
             write(errmsg, '(4x,a,a)') &
@@ -415,7 +410,7 @@ module SimulationCreateModule
 ! ------------------------------------------------------------------------------
     ! -- modules
     use GwfGwfExchangeModule,    only: gwfexchange_create
-    use GwfpGwfpExchangeModule,  only: gwfpexchange_create !JV
+    use GwfpGwfpExchangeModule,  only: gwfpexchange_create
     ! -- dummy
     ! -- local
     integer(I4B) :: ierr
@@ -429,6 +424,8 @@ module SimulationCreateModule
     character(len=LINELENGTH) :: keyword
     character(len=LINELENGTH) :: fname, name1, name2
     logical :: create !JV
+    integer :: im = 0 !JV
+    logical :: swap !JV
     ! -- formats
     character(len=*), parameter :: fmtmerr = "('Error in simulation control ', &
       &'file.  Could not find model: ', a)"
@@ -437,6 +434,7 @@ module SimulationCreateModule
     if (isfound) then
       write(iout,'(/1x,a)')'READING SIMULATION EXCHANGES'
       id = 0
+      im = 0 !JV
       do
         call parser%GetNextLine(endOfBlock)
         if (endOfBlock) exit
@@ -478,39 +476,20 @@ module SimulationCreateModule
             ! -- get filename
             call parser%GetString(fname)
             !
-            ! -- get first modelname and then model id
+            ! -- get modelname
             call parser%GetStringCaps(name1)
-            m1  = ifind(modelname, name1)
-            mm1 = ifind(modelname_mpi, name1)
-            if(m1 < 0 .and. mm1 < 0) then
-              write(errmsg, fmtmerr) trim(name1)
-              call store_error(errmsg)
-              call parser%StoreErrorUnit()
-              call ustop()
-            endif
-            !
-            ! -- get second modelname and then model id
             call parser%GetStringCaps(name2)
+            !
+            ! -- get model id
+            m1 = ifind(modelname, name1)
             m2 = ifind(modelname, name2)
-            mm2 = ifind(modelname_mpi, name2)
-            if(m2 < 0 .and. mm2 <0) then
-              write(errmsg, fmtmerr) trim(name2)
-              call store_error(errmsg)
-              call parser%StoreErrorUnit()
-              call ustop()
-            endif
+            !
+            ! -- TODO: add check for model existence
             !
             ! -- Create the exchange object.
-            if (m1 > 0 .or. m2 > 0) then
-              create = .true.
-            else !JV
-              create = .false.
-            endif !JV
-            if (create) then
-              write(iout, '(4x,a,i0,a,i0,a,i0)') 'GWF6-GWF6 exchange ', id,    &
-                ' will be created to connect model ', m1, ' with model ', m2
-              call gwfpexchange_create(fname, id, m1, m2)
-            endif
+            write(iout, '(4x,a,i0,a,i0,a,i0)') 'GWFP6-GWFP6 exchange ', id,    &
+              ' will be created to connect model ', m1, ' with model ', m2
+            call gwfpexchange_create(fname, id, m1, m2, name1, name2, im)
           case default
             write(errmsg, '(4x,a,a)') &
                   '****ERROR. UNKNOWN SIMULATION EXCHANGES: ',                 &
@@ -634,12 +613,7 @@ module SimulationCreateModule
               if (mname == '') exit
               !
               ! -- Find the model id, and then get model
-              add = .true. !JV
               mid = ifind(modelname, mname)
-              if(mid <= 0) then !JV
-                mid = ifind(modelname_mpi, mname) !JV
-                add = .false. !JV
-              endif !JV
               if(mid <= 0) then
                 write(errmsg, '(a,a)') 'Error.  Invalid modelname: ', &
                   trim(mname)
@@ -647,13 +621,11 @@ module SimulationCreateModule
                 call parser%StoreErrorUnit()
                 call ustop()
               endif
-              if (add) then !JV
               mp => GetBaseModelFromList(basemodellist, mid)
               !
               ! -- Add the model to the solution
               call sp%addmodel(mp)
               mp%idsoln = isoln
-              endif !JV
               !
             enddo
           !
@@ -701,7 +673,7 @@ module SimulationCreateModule
     return
   end subroutine solution_groups_create
 
-  subroutine add_model(im, mtype, mname, rank)
+  subroutine add_model(im, mtype, mname)
 ! ******************************************************************************
 ! Add the model to the list of modelnames, check that the model name is valid.
 ! ******************************************************************************
@@ -712,27 +684,14 @@ module SimulationCreateModule
     integer, intent(inout) :: im
     character(len=*), intent(in) :: mtype
     character(len=*), intent(inout) :: mname
-    integer, intent(in), optional :: rank !JV
     ! -- local
     integer :: ilen
     integer :: i
     character(len=LINELENGTH) :: errmsg
-    logical :: lmpi !JV
 ! ------------------------------------------------------------------------------
-    if (present(rank)) then !JV
-      lmpi = .true. !JV
-    else !JV
-      lmpi = .false. !JV
-    endif !JV
     !
     im = im + 1
-    if (.not.lmpi) then !JV
-      call expandarray(modelname)
-    else !JV
-      call expandarray(modelname_mpi) !JV
-      call expandarray(modelrank) !JV
-      modelrank(im) = rank !JV
-    end if !JV
+    call expandarray(modelname)
     call parser%GetStringCaps(mname)
     ilen = len_trim(mname)
     if (ilen > LENMODELNAME) then
@@ -758,13 +717,9 @@ module SimulationCreateModule
         call ustop()
       endif
     enddo
-    if (.not.lmpi) then !JV
-      modelname(im) = mname
-      write(iout, '(4x,a,i0)') mtype // ' model ' // trim(mname) //            &
-        ' will be created as model ', im  
-    else !JV
-      modelname_mpi(im) = mname !JV
-    endif !JV
+    modelname(im) = mname
+    write(iout, '(4x,a,i0)') mtype // ' model ' // trim(mname) //              &
+      ' will be created as model ', im  
     !
     ! -- return
     return
