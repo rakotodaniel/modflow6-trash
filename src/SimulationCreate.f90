@@ -348,7 +348,7 @@ module SimulationCreateModule
     ! -- modules
     use GwfModule,              only: gwf_cr
     use ConstantsModule,        only: LENMODELNAME
-    use SimVariablesModule, only: isimdd !JV
+    use SimVariablesModule, only: isimdd, nddsub !JV
     use MpiExchangeModule, only: MpiWorld !JV
     ! -- dummy
     ! -- local
@@ -378,6 +378,12 @@ module SimulationCreateModule
             call parser%GetString(fname)
             if (isimdd == 1) then !JV
               isub = parser%GetInteger() !JV
+              if (isub < 0 .or. isub > nddsub) then
+                write(*,'(a,1x,i)') '****ERROR. INVALID SUBDOMAIN:', isub
+                call store_error(errmsg)
+                call parser%StoreErrorUnit()
+                call ustop()
+              endif
               call MpiWorld%mpi_is_iproc(isub, add) !JV
             else !JV
               add = .true. !JV
