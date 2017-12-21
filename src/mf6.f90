@@ -27,9 +27,8 @@ program mf6
                                     final_message
   use TdisModule,             only: tdis_tu, tdis_da,                          &
                                     endofsimulation
-  use MpiExchangeModule,      only: mpi_initialize, serialrun,                 & !JV
-                                    nrprocstr, writestd !JV 
-  use MpiExchangeModule,      only: mpi_debug !JV DEBUG
+  use MpiExchangeGenModule,   only: mpi_initialize, serialrun, writestd !JV
+  use MpiExchangeModule,      only: mpi_initialize_world, MpiWorld !JV 
   implicit none
   ! -- local
   class(SolutionGroupType), pointer :: sgp
@@ -44,14 +43,14 @@ program mf6
   !
   ! -- Initialize MPI if required
   call mpi_initialize() !JV
-  !call mpi_debug() !JV
+  call mpi_initialize_world() !JV
   !
   ! -- Write banner to screen (unit 6) and start timer
   call write_centered('MODFLOW'//MFVNAM, ISTDOUT, 80)
   call write_centered(MFTITLE, ISTDOUT, 80)
   call write_centered('VERSION '//VERSION, ISTDOUT, 80)
   if (.not.serialrun) call write_centered('***RUNNING IN PARALLEL MODE WITH '& !JV
-    //TRIM(nrprocstr)//' MPI PROCESSES***',ISTDOUT, 80) !JV
+    //TRIM(MpiWorld%nrprocstr)//' MPI PROCESSES***',ISTDOUT, 80) !JV
   !
   ! -- Write if develop mode
   if (IDEVELOPMODE == 1) call write_centered('***DEVELOP MODE***', ISTDOUT, 80)
@@ -77,6 +76,9 @@ program mf6
     mp => GetBaseModelFromList(basemodellist, im)
     call mp%model_df()
   enddo
+  !
+  ! TODO: communicate scalars DIS
+  !stop
   !
   ! -- Define each exchange
   do ic = 1, baseexchangelist%Count()

@@ -24,6 +24,8 @@ module BaseSolutionModule
     procedure (slnsave), deferred :: save
     procedure (slnaddmodel), deferred :: addmodel
     procedure (slnassignexchanges), deferred :: slnassignexchanges
+    procedure (slnmpiaddgmodel), deferred :: slnmpiaddgmodel !JV
+    procedure (slnmpiinit), deferred :: slnmpiinit !JV
   end type BaseSolutionType
 
   abstract interface
@@ -38,6 +40,18 @@ module BaseSolutionModule
       class(BaseSolutionType) :: this
     end subroutine
 
+    subroutine slnmpiaddgmodel(this, mname) !JV
+      import BaseSolutionType !JV
+      class(BaseSolutionType) :: this !JV
+      character(len=*), intent(in) :: mname !JV
+    end subroutine !JV
+    
+    subroutine slnmpiinit(this, sname) !JV
+      import BaseSolutionType !JV
+      class(BaseSolutionType) :: this !JV
+      character(len=*), intent(in) :: sname !JV
+    end subroutine !JV
+    
     subroutine sln_ar(this)
       import BaseSolutionType
       class(BaseSolutionType) :: this

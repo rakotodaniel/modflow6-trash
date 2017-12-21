@@ -8,7 +8,7 @@ module gwfpgwfpExchangeModule
   use ListsModule,             only: basemodellist
   use NumericalExchangeModule, only: NumericalExchangeType
   use NumericalModelModule,    only: NumericalModelType
-  use gwfModule,               only: gwfModelType, gwf_cr_exchange !JV
+  use gwfModule,               only: gwfModelType, gwf_cr_halo
   use GhostNodeModule,         only: GhostNodeType
   use gwfMvrModule,            only: gwfMvrType
   use ObserveModule,           only: ObserveType
@@ -27,8 +27,6 @@ module gwfpgwfpExchangeModule
   type, extends(NumericalExchangeType) :: gwfpExchangeType
     type(gwfModelType), pointer                      :: gwfpmodel1 => null()    ! pointer to gwfp Model 1
     type(gwfModelType), pointer                      :: gwfpmodel2 => null()    ! pointer to gwfp Model 2
-    integer, pointer                                 :: m2_mem    => null()     ! flg indicating if model 2 is in/out memory (parallel) !JV
-    logical, pointer                                 :: m1m2_swap => null()     ! logical indicating that model1 and model2 are swapped !JV
     integer(I4B), pointer                            :: inewton   => null()     ! newton flag (1 newton is on)
     integer(I4B), pointer                            :: icellavg  => null()     ! cell averaging
     integer(I4B), pointer                            :: ivarcv    => null()     ! variable cv
@@ -78,7 +76,8 @@ module gwfpgwfpExchangeModule
 
 contains
 
-subroutine gwfpexchange_create(filename, id, m1i, m2i, mname1i, mname2i, im)
+subroutine gwfpexchange_create(filename, id, m1i, m2i, mname1i, mname2i, im,   &
+                              createhalo)
 ! ******************************************************************************
 ! Create a new gwfp to gwfp exchange object: initialization.
 ! ******************************************************************************
@@ -86,9 +85,10 @@ subroutine gwfpexchange_create(filename, id, m1i, m2i, mname1i, mname2i, im)
 !    SPECIFICATIONS:
 ! ------------------------------------------------------------------------------
     ! -- modules
+    use ArrayHandlersModule, only: ifind
     use ConstantsModule, only: LINELENGTH
     use BaseModelModule, only: BaseModelType
-    use ListsModule, only: baseexchangelist, exchangemodellist
+    use ListsModule, only: baseexchangelist, halomodellist
     use ObsModule, only: obs_cr
     ! -- dummy
     character(len=*),intent(in) :: filename
@@ -96,14 +96,13 @@ subroutine gwfpexchange_create(filename, id, m1i, m2i, mname1i, mname2i, im)
     integer, intent(in) :: m1i, m2i
     character(len=LINELENGTH), intent(in) :: mname1i, mname2i
     integer, intent(inout) :: im
-
+    logical, intent(in) :: createhalo
     ! -- local
     type(gwfpExchangeType), pointer :: exchange
     class(BaseModelType), pointer :: mb
     class(BaseExchangeType), pointer :: baseexchange
     character(len=20) :: cint
-    logical :: swap, old_model
-    integer :: m1, m2
+    integer :: m1, m2, m, s1, s2
     character(len=LINELENGTH) :: mname2
 ! ------------------------------------------------------------------------------
     !
@@ -126,23 +125,21 @@ subroutine gwfpexchange_create(filename, id, m1i, m2i, mname1i, mname2i, im)
     ! -- Create the obs package
     call obs_cr(exchange%obs, exchange%inobs)
     !
-    if (m1i > 0) then
+    if (m1i > 0 .or. .not.createhalo) then
       m1 = m1i
       m2 = m2i
       mname2 = mname2i
-      swap = .false.
+      exchange%m1m2_swap = .false.
     else
       m1 = m2i
       m2 = m1i
       mname2 = mname1i
-      swap = .true.
+      exchange%m1m2_swap = .true.
     endif
-    ! --- add flag for swapping
-    exchange%m1m2_swap = swap
     if (m2 > 0) then
-      old_model = .true.
+      exchange%m2_prov = m2
     else
-      old_model = .false.
+      exchange%m2_prov = -1
     endif
     !
     mb => GetBaseModelFromList(basemodellist, m1)
@@ -158,12 +155,13 @@ subroutine gwfpexchange_create(filename, id, m1i, m2i, mname1i, mname2i, im)
     end select
     !
     ! -- set gwfmodel2
-    if (old_model) then
+    if (.not.createhalo) then
       mb => GetBaseModelFromList(basemodellist, m2)
-    else
+    else  
       im = im + 1
-      call gwf_cr_exchange(im, mname2)
-      mb => GetBaseModelFromList(exchangemodellist, im)
+      exchange%m2_ishalo = .true.
+      call gwf_cr_halo(im, mname2)
+      mb => GetBaseModelFromList(halomodellist, im)
     endif
     ! -- set exchange%m2
     select type (mb)
@@ -204,15 +202,19 @@ subroutine gwfpexchange_create(filename, id, m1i, m2i, mname1i, mname2i, im)
     !
     call this%parser%Initialize(inunit, iout)
     !
+    ! -- Set data for model 2
+    !TODO: idsoln
+    !
+
     ! -- Ensure models are in same solution
-    if(this%gwfpmodel1%idsoln /= this%gwfpmodel2%idsoln) then
-      call store_error('ERROR.  TWO MODELS ARE CONNECTED ' //                  &
-        'IN A gwfp EXCHANGE BUT THEY ARE IN DIFFERENT SOLUTIONS. ' //           &
-        'gwfp MODELS MUST BE IN SAME SOLUTION: ' //                             &
-        trim(this%gwfpmodel1%name) // ' ' // trim(this%gwfpmodel2%name) )
-      call this%parser%StoreErrorUnit()
-      call ustop()
-    endif
+    !if(this%gwfpmodel1%idsoln /= this%gwfpmodel2%idsoln) then
+    !  call store_error('ERROR.  TWO MODELS ARE CONNECTED ' //                  &
+    !    'IN A gwfp EXCHANGE BUT THEY ARE IN DIFFERENT SOLUTIONS. ' //           &
+    !    'gwfp MODELS MUST BE IN SAME SOLUTION: ' //                             &
+    !    trim(this%gwfpmodel1%name) // ' ' // trim(this%gwfpmodel2%name) )
+    !  call this%parser%StoreErrorUnit()
+    !  call ustop()
+    !endif
     !
     ! -- read options
     call this%read_options(iout)
@@ -1569,7 +1571,8 @@ subroutine gwfpexchange_create(filename, id, m1i, m2i, mname1i, mname2i, im)
     call mem_allocate(this%inobs, 'INOBS', origin)
     call mem_allocate(this%inamedbound, 'INAMEDBOUND', origin)
     call mem_allocate(this%satomega, 'SATOMEGA', origin)
-    call mem_allocate(this%m2_mem, 'M2_MEM', origin) !JV
+    call mem_allocate(this%m2_ishalo, 'M2_ISHALO', origin) !JV
+    call mem_allocate(this%m2_prov, 'M2_PROV', origin) !JV
     call mem_allocate(this%m1m2_swap, 'M1M2_SWAP', origin) !JV
     this%icellavg = 0
     this%ivarcv = 0
@@ -1581,7 +1584,8 @@ subroutine gwfpexchange_create(filename, id, m1i, m2i, mname1i, mname2i, im)
     this%inobs = 0
     this%inamedbound = 0
     this%satomega = DZERO
-    this%m2_mem = in_mem !JV
+    this%m2_ishalo = .false. !JV
+    this%m2_prov = -1 !JV
     this%m1m2_swap = .false. !JV
     !
     ! -- return
@@ -1628,7 +1632,7 @@ subroutine gwfpexchange_create(filename, id, m1i, m2i, mname1i, mname2i, im)
     call mem_deallocate(this%inobs)
     call mem_deallocate(this%inamedbound)
     call mem_deallocate(this%satomega)
-    call mem_deallocate(this%m2_mem) !JV
+    call mem_deallocate(this%m2_prov) !JV
     call mem_deallocate(this%m1m2_swap) !JV
     !
     ! -- arrays

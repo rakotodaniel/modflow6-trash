@@ -24,6 +24,8 @@ module SimulationCreateModule
 
   integer(I4B) :: inunit = 0
   character(len=LENMODELNAME), allocatable, dimension(:) :: modelname
+  character(len=LENMODELNAME), allocatable, dimension(:), save :: modelname_all !JV
+  integer, allocatable, dimension(:), save                     :: model_sub !JV
   type(BlockParserType) :: parser
 
   contains
@@ -36,7 +38,7 @@ module SimulationCreateModule
 !    SPECIFICATIONS:
 ! ------------------------------------------------------------------------------
     ! -- modules
-    use MpiExchangeModule, only: mpi_barrier_world !JV
+    use MpiExchangeModule, only: MpiWorld !JV
     ! -- local
     character(len=LINELENGTH) :: simfile
     character(len=LINELENGTH) :: simlstfile
@@ -51,7 +53,7 @@ module SimulationCreateModule
     iout = getunit()
     call openfile(iout, 0, simlstfile, 'LIST', filstat_opt='REPLACE',          &
                   master_write=.true.) !JV
-    call mpi_barrier_world() !JV
+    call MpiWorld%mpi_barrier() !JV 
     write(*,'(A,A)') ' Writing simulation list file: ', &
                      trim(adjustl(simlstfile))
     call write_simulation_header()
@@ -77,6 +79,8 @@ module SimulationCreateModule
     !
     ! -- variables
     deallocate(modelname)
+    deallocate(modelname_all) !JV
+    deallocate(model_sub) !JV
     !
     ! -- Return
     return
@@ -141,7 +145,8 @@ module SimulationCreateModule
 !    SPECIFICATIONS:
 ! ------------------------------------------------------------------------------
     ! -- modules
-    use MpiExchangeModule, only: writestd !JV
+    use MpiExchangeGenModule, only: writestd !JV
+    use MpiExchangeModule, only: MpiWorld !JV
     ! -- dummy
     character(len=*),intent(inout) :: simfile !JV
     ! -- local
@@ -198,6 +203,12 @@ module SimulationCreateModule
       call sp%slnassignexchanges()
     enddo
     !
+    ! --- Initialize solution for MPI
+    do is = 1, basesolutionlist%Count() !JV
+      sp => GetBaseSolutionFromList(basesolutionlist, is) !JV
+      call sp%slnmpiinit(sp%name) !JV
+    enddo !JV
+    !
     ! -- Return
     return
   end subroutine read_simulation_namefile
@@ -211,8 +222,7 @@ module SimulationCreateModule
 ! ------------------------------------------------------------------------------
     ! -- modules
     use MemoryManagerModule, only: mem_set_print_option
-    use SimVariablesModule, only: isimcontinue, isimcheck, isimmpi !JV
-    use MpiExchangeModule, only: serialrun !JV
+    use SimVariablesModule, only: isimcontinue, isimcheck, isimdd, nddsub !JV
     ! -- local
     integer(I4B) :: ierr
     logical :: isfound, endOfBlock
@@ -246,12 +256,11 @@ module SimulationCreateModule
               call parser%StoreErrorUnit()
               call ustop()
             endif
-          case ('MPI_PARALLEL') !JV
-            if (.not.serialrun) then !JV
-              isimmpi = 1 !JV
-              write(iout, '(4x, a)')                                           & !JV
-                    'SIMULATION WILL USE MPI PARALLELLIZATION.' !JV
-            endif !JV
+          case ('DOMAIN_DECOMPOSITION') !JV
+            isimdd = 1 !JV
+            nddsub = parser%GetInteger() !JV
+            write(iout, '(4x, a)')                                           & !JV
+                  'SIMULATION WILL USE DOMAIN DECOMPOSITION.' !JV
           case default
             write(errmsg, '(4x,a,a)') &
                   '****ERROR. UNKNOWN SIMULATION OPTION: ',                    &
@@ -339,17 +348,18 @@ module SimulationCreateModule
     ! -- modules
     use GwfModule,              only: gwf_cr
     use ConstantsModule,        only: LENMODELNAME
-    use SimVariablesModule, only: isimmpi !JV
-    use MpiExchangeModule, only: world_myrank !JV
+    use SimVariablesModule, only: isimdd !JV
+    use MpiExchangeModule, only: MpiWorld !JV
     ! -- dummy
     ! -- local
     integer(I4B) :: ierr
     logical :: isfound, endOfBlock
     integer(I4B) :: im
+    integer(I4B) :: imdd !JV
     character(len=LINELENGTH) :: errmsg
     character(len=LINELENGTH) :: keyword
     character(len=LINELENGTH) :: fname, mname
-    integer :: rank !JV
+    integer :: isub !JV
     logical :: add !JV
 ! ------------------------------------------------------------------------------
     !
@@ -358,6 +368,7 @@ module SimulationCreateModule
     if (isfound) then
       write(iout,'(/1x,a)')'READING SIMULATION MODELS'
       im = 0
+      imdd = 0 !JV
       do
         call parser%GetNextLine(endOfBlock)
         if (endOfBlock) exit
@@ -365,20 +376,21 @@ module SimulationCreateModule
         select case (keyword)
           case ('GWF6')
             call parser%GetString(fname)
-            isimmpi = 1 !@@@DEBUG
-            if (isimmpi == 1) then !JV
-              rank = parser%GetInteger() !JV
-              if (rank == world_myrank) then !JV
-                add = .true.
-              else !JV
-                add = .false. !JV
-              end if  
+            if (isimdd == 1) then !JV
+              isub = parser%GetInteger() !JV
+              call MpiWorld%mpi_is_iproc(isub, add) !JV
             else !JV
               add = .true. !JV
             end if !JV
+            call read_modelname(mname) !JV
             if (add) then !JV
               call add_model(im, 'GWF6', mname)
               call gwf_cr(fname, im, modelname(im))
+            end if !JV
+            if (isimdd == 1) then !JV
+              call add_model_dd(imdd, isub,'GWF6', mname) !JV
+              call MpiWorld%mpi_addmodel(1, mname) !JV
+              call MpiWorld%mpi_addsub(1, isub) !JV
             endif !JV
           case default
             write(errmsg, '(4x,a,a)') &
@@ -418,14 +430,12 @@ module SimulationCreateModule
     integer(I4B) :: id
     integer(I4B) :: m1
     integer(I4B) :: m2
-    integer(I4B) :: mm1 !JV
-    integer(I4B) :: mm2 !JV
+    integer(I4B) :: s1, s2 !JV
     character(len=LINELENGTH) :: errmsg
     character(len=LINELENGTH) :: keyword
     character(len=LINELENGTH) :: fname, name1, name2
-    logical :: create !JV
     integer :: im = 0 !JV
-    logical :: swap !JV
+    logical :: createhalo !JV
     ! -- formats
     character(len=*), parameter :: fmtmerr = "('Error in simulation control ', &
       &'file.  Could not find model: ', a)"
@@ -480,6 +490,17 @@ module SimulationCreateModule
             call parser%GetStringCaps(name1)
             call parser%GetStringCaps(name2)
             !
+            ! -- Determine wether to create halo or not
+            m1 = ifind(modelname_all, name1)
+            m2 = ifind(modelname_all, name2)
+            s1 = model_sub(m1)
+            s2 = model_sub(m2)
+            if (s1 /= s2) then
+              createhalo = .true.
+            else
+              createhalo = .false.
+            endif
+            !
             ! -- get model id
             m1 = ifind(modelname, name1)
             m2 = ifind(modelname, name2)
@@ -489,7 +510,7 @@ module SimulationCreateModule
             ! -- Create the exchange object.
             write(iout, '(4x,a,i0,a,i0,a,i0)') 'GWFP6-GWFP6 exchange ', id,    &
               ' will be created to connect model ', m1, ' with model ', m2
-            call gwfpexchange_create(fname, id, m1, m2, name1, name2, im)
+            call gwfpexchange_create(fname, id, m1, m2, name1, name2, im, createhalo)
           case default
             write(errmsg, '(4x,a,a)') &
                   '****ERROR. UNKNOWN SIMULATION EXCHANGES: ',                 &
@@ -613,7 +634,8 @@ module SimulationCreateModule
               if (mname == '') exit
               !
               ! -- Find the model id, and then get model
-              mid = ifind(modelname, mname)
+              mid = ifind(modelname_all, mname) !JV
+              call sp%slnmpiaddgmodel(mname) !JV
               if(mid <= 0) then
                 write(errmsg, '(a,a)') 'Error.  Invalid modelname: ', &
                   trim(mname)
@@ -621,14 +643,15 @@ module SimulationCreateModule
                 call parser%StoreErrorUnit()
                 call ustop()
               endif
-              mp => GetBaseModelFromList(basemodellist, mid)
-              !
-              ! -- Add the model to the solution
-              call sp%addmodel(mp)
-              mp%idsoln = isoln
-              !
+              mid = ifind(modelname, mname) !JV
+              if (mid > 0) then !JV
+                mp => GetBaseModelFromList(basemodellist, mid)
+                !
+                ! -- Add the model to the solution
+                call sp%addmodel(mp)
+                mp%idsoln = isoln
+              endif !JV
             enddo
-          !
           case default
             write(errmsg, '(4x,a,a)') &
                   '****ERROR. UNKNOWN SOLUTIONGROUP ENTRY: ', &
@@ -685,13 +708,33 @@ module SimulationCreateModule
     character(len=*), intent(in) :: mtype
     character(len=*), intent(inout) :: mname
     ! -- local
+! ------------------------------------------------------------------------------
+    !
+    im = im + 1
+    call expandarray(modelname)
+    modelname(im) = mname
+    write(iout, '(4x,a,i0)') mtype // ' model ' // trim(mname) //              &
+      ' will be created as model ', im  
+    !
+    ! -- return
+    return
+  end subroutine add_model
+  
+  subroutine read_modelname(mname) !JV
+! ******************************************************************************
+! Read the model name and check.
+! ******************************************************************************
+!
+!    SPECIFICATIONS:
+! ------------------------------------------------------------------------------
+    ! -- dummy
+    character(len=*), intent(out) :: mname
+    ! -- local
     integer :: ilen
     integer :: i
     character(len=LINELENGTH) :: errmsg
 ! ------------------------------------------------------------------------------
     !
-    im = im + 1
-    call expandarray(modelname)
     call parser%GetStringCaps(mname)
     ilen = len_trim(mname)
     if (ilen > LENMODELNAME) then
@@ -717,12 +760,37 @@ module SimulationCreateModule
         call ustop()
       endif
     enddo
-    modelname(im) = mname
-    write(iout, '(4x,a,i0)') mtype // ' model ' // trim(mname) //              &
-      ' will be created as model ', im  
     !
     ! -- return
     return
-  end subroutine add_model
+  end subroutine read_modelname
+  
+  subroutine add_model_dd(im, isub, mtype, mname) !JV
+! ******************************************************************************
+! Add the model to the list of modelnames, check that the model name is valid.
+! ******************************************************************************
+!
+!    SPECIFICATIONS:
+! ------------------------------------------------------------------------------
+    ! -- dummy
+    integer, intent(inout) :: im
+    integer, intent(in) :: isub
+    character(len=*), intent(in) :: mtype
+    character(len=*), intent(inout) :: mname
+    ! -- local
+    integer :: ilen
+    integer :: i
+    character(len=LINELENGTH) :: errmsg
+! ------------------------------------------------------------------------------
+    !
+    im = im + 1
+    call expandarray(modelname_all)
+    call expandarray(model_sub)
+    modelname_all(im) = mname
+    model_sub(im) = isub
+    !
+    ! -- return
+    return
+  end subroutine add_model_dd
   
 end module SimulationCreateModule

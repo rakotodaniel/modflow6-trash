@@ -26,7 +26,7 @@ module GwfModule
 
   private
   public :: gwf_cr
-  public :: gwf_cr_exchange !JV
+  public :: gwf_cr_halo !JV
   public :: GwfModelType
 
   type, extends(NumericalModelType) :: GwfModelType
@@ -299,9 +299,9 @@ module GwfModule
     return
   end subroutine gwf_cr
 
-  subroutine gwf_cr_exchange(id, modelname) ! JV
+  subroutine gwf_cr_halo(id, modelname) ! JV
 ! ******************************************************************************
-! gwf_cr_exchange -- Create a new groundwater flow model object for exchange
+! gwf_cr_halo -- Create a new groundwater flow model object for exchange
 ! Subroutine: (1) creates model object and add to exchange modellist
 !             (2) assign values
 ! ******************************************************************************
@@ -309,7 +309,7 @@ module GwfModule
 !    SPECIFICATIONS:
 ! ------------------------------------------------------------------------------
     ! -- modules
-    use ListsModule,                only: exchangemodellist
+    use ListsModule,                only: halomodellist
     use BaseModelModule,            only: AddBaseModelToList
     use SimModule,                  only: ustop, store_error, count_errors
     use InputOutputModule,          only: write_centered
@@ -335,11 +335,11 @@ module GwfModule
     ! -- format
 ! ------------------------------------------------------------------------------
     !
-    ! -- Allocate a new GWF Model (this) and add it to exchangemodellist
+    ! -- Allocate a new GWF Model (this) and add it to halomodellist
     allocate(this)
     call this%allocate_scalars(modelname)
     model => this   
-    call AddBaseModelToList(exchangemodellist, model)
+    call AddBaseModelToList(halomodellist, model)
     
     ! -- Assign values
     this%name = modelname
@@ -372,7 +372,7 @@ module GwfModule
     !
     ! -- return
     return
-  end subroutine gwf_cr_exchange
+  end subroutine gwf_cr_halo
     
   subroutine gwf_df(this)
 ! ******************************************************************************

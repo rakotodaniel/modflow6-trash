@@ -449,7 +449,7 @@ subroutine ustop(stopmess,ioutlocal,writestd)
   !    SPECIFICATIONS:
   ! --------------------------------------------------------------------------
   ! -- modules
-  use MpiExchangeModule, only: mpi_finalize !JV
+  use MpiExchangeGenModule, only: mpi_finalize !JV
   ! -- dummy
   implicit none
   character, optional, intent(in) :: stopmess*(*)
@@ -561,7 +561,7 @@ end subroutine ustop
 ! ------------------------------------------------------------------------------
     ! -- modules
     use SimVariablesModule, only: isimcnvg, numnoconverge
-    use MpiExchangeModule, only: writestd !JV
+    use MpiExchangeGenModule, only: writestd !JV
     ! -- formats
     character(len=*), parameter :: fmtnocnvg =                                 &
       "(1x, 'Simulation convergence failure occurred ', i0, ' time(s).')"

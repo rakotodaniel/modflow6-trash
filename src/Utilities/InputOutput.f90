@@ -76,7 +76,7 @@ module InputOutputModule
 ! ------------------------------------------------------------------------------
     ! -- modules
     use OpenSpecModule, only: action
-    use MpiExchangeModule, only: mpi_append_fname !JV
+    use MpiExchangeGenModule, only: mpi_append_fname !JV
     implicit none
     ! -- dummy
     integer(I4B), intent(inout)       :: iu
@@ -141,7 +141,7 @@ module InputOutputModule
       mw = master_write !JV
     end if !JV
     if (mw) then !JV
-       call mpi_append_fname(fname) !JV
+      call mpi_append_fname(fname) !JV
     end if !JV
     !
     ! -- size of fname
@@ -1632,7 +1632,7 @@ module InputOutputModule
     ! Write text to unit iout centered in width defined by linelen
     ! Left-pad with blanks as needed.
     use ConstantsModule, only: LINELENGTH
-    use MpiExchangeModule, only: writestd !JV
+    use MpiExchangeGenModule, only: writestd !JV
     implicit none
     ! -- dummy
     character(len=*), intent(in) :: text

@@ -22,6 +22,7 @@ module NumericalSolutionModule
   use SimVariablesModule,      only: iout
   use BlockParserModule,       only: BlockParserType
   use IMSLinearModule
+  use MpiExchangeModule,  only: MpiExchangeType !JV
 
   implicit none
   private
@@ -109,6 +110,8 @@ module NumericalSolutionModule
     !
     ! sparse object
     type(sparsematrix)                                   :: sparse
+    !
+    type(MpiExchangeType), pointer                       :: MpiSol => NULL() !JV
 
   contains
     procedure :: sln_df
@@ -121,6 +124,8 @@ module NumericalSolutionModule
     procedure :: addmodel
     procedure :: addexchange
     procedure :: slnassignexchanges
+    procedure :: slnmpiaddgmodel !JV
+    procedure :: slnmpiinit !JV
     procedure :: save
 
     procedure, private :: sln_connect
@@ -1739,6 +1744,74 @@ contains
     return
   end subroutine slnassignexchanges
 
+  subroutine slnmpiaddgmodel(this, mname) !JV
+! ******************************************************************************
+! Add global modelname to this solution
+! ******************************************************************************
+!
+!    SPECIFICATIONS:
+! ------------------------------------------------------------------------------
+    ! -- modules
+    ! -- dummy
+    class(NumericalSolutionType) :: this
+    character(len=*), intent(in) :: mname
+    ! -- local
+    class(NumericalModelType), pointer :: mp
+    integer(I4B) :: im
+! ------------------------------------------------------------------------------
+    !
+    if (.not.associated(this%MpiSol)) then
+      allocate(this%MpiSol)
+    endif
+    call this%MpiSol%mpi_addmodel(1, mname)
+    !
+    ! -- return
+    return
+  end subroutine slnmpiaddgmodel
+  
+  subroutine slnmpiinit(this, sname) !JV
+! ******************************************************************************
+! Initialize MPI for this solution
+! ******************************************************************************
+!
+!    SPECIFICATIONS:
+! ------------------------------------------------------------------------------
+    ! -- modules
+    use MpiExchangeModule, only: MpiWorld
+    use BaseModelModule, only: GetBaseModelFromList
+    use ArrayHandlersModule, only: ifind
+    ! -- dummy
+    class(NumericalSolutionType) :: this
+    character(len=*), intent(in) :: sname
+    ! -- local
+    class(NumericalModelType), pointer :: mp
+    class(NumericalExchangeType), pointer :: cp
+    integer(I4B) :: im, ic, i, isub
+! ------------------------------------------------------------------------------
+    !
+    this%MpiSol%name = 'MPI'//trim(sname)
+    !
+    ! -- loop over the models within this solution
+    do im=1,this%modellist%Count()
+      mp => GetNumericalModelFromList(this%modellist, im)
+      ! -- add model to local MPI model list
+      call this%MpiSol%mpi_addmodel(2, mp%name)
+      ! -- find the subdomain for this modell
+      i = ifind(MpiWorld%gmodelnames, mp%name)
+      isub = MpiWorld%gsubs(i)
+      ! -- add subdomain to local MPI subdomain list
+      call this%MpiSol%mpi_addsub(2, isub)
+    enddo
+    !
+    ! -- loop over exchanges
+    do ic=1,this%exchangelist%Count()
+      cp => GetNumericalExchangeFromList(this%exchangelist, ic)
+    enddo    
+    !
+    ! -- return
+    return
+  end subroutine slnmpiinit
+  
   subroutine sln_connect(this)
 ! ******************************************************************************
 ! sln_connect -- Assign Connections
