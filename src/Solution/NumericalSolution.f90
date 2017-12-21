@@ -30,8 +30,8 @@ module NumericalSolutionModule
 
   type, extends(BaseSolutionType) :: NumericalSolutionType
     character(len=LINELENGTH)                            :: fname
-    type(ListType)                                       :: modellist
-    type(ListType)                                       :: exchangelist
+    type(ListType), pointer                              :: modellist !JV
+    type(ListType), pointer                              :: exchangelist !JV
     integer(I4B), pointer                                :: id
     integer(I4B), pointer                                :: iu
     real(DP), pointer                                    :: ttform
@@ -1674,6 +1674,10 @@ contains
     class(NumericalModelType), pointer :: m
 ! ------------------------------------------------------------------------------
     !
+    if (.not.associated(this%modellist)) then !JV
+      allocate(this%modellist) !JV
+    endif !JV
+    !
     select type(mp)
     class is (NumericalModelType)
       m => mp
@@ -1696,6 +1700,10 @@ contains
     class(NumericalSolutionType) :: this
     class(NumericalExchangeType), pointer, intent(in) :: exchange
 ! ------------------------------------------------------------------------------
+    !
+    if (.not.associated(this%exchangelist)) then !JV
+      allocate(this%exchangelist) !JV
+    endif !JV
     !
     call AddNumericalExchangeToList(this%exchangelist, exchange)
     !
@@ -1744,7 +1752,7 @@ contains
     return
   end subroutine slnassignexchanges
 
-  subroutine slnmpiaddgmodel(this, mname) !JV
+  subroutine slnmpiaddgmodel(this, mname, idsoln) !JV
 ! ******************************************************************************
 ! Add global modelname to this solution
 ! ******************************************************************************
@@ -1755,6 +1763,7 @@ contains
     ! -- dummy
     class(NumericalSolutionType) :: this
     character(len=*), intent(in) :: mname
+    integer(I4B), intent(in) :: idsoln
     ! -- local
     class(NumericalModelType), pointer :: mp
     integer(I4B) :: im
@@ -1764,6 +1773,7 @@ contains
       allocate(this%MpiSol)
     endif
     call this%MpiSol%mpi_addmodel(1, mname)
+    call this%MpiSol%mpi_addidsoln(1, idsoln)
     !
     ! -- return
     return
@@ -1777,36 +1787,17 @@ contains
 !    SPECIFICATIONS:
 ! ------------------------------------------------------------------------------
     ! -- modules
-    use MpiExchangeModule, only: MpiWorld
-    use BaseModelModule, only: GetBaseModelFromList
-    use ArrayHandlersModule, only: ifind
     ! -- dummy
     class(NumericalSolutionType) :: this
     character(len=*), intent(in) :: sname
     ! -- local
-    class(NumericalModelType), pointer :: mp
-    class(NumericalExchangeType), pointer :: cp
-    integer(I4B) :: im, ic, i, isub
 ! ------------------------------------------------------------------------------
     !
     this%MpiSol%name = 'MPI'//trim(sname)
+    this%MpiSol%lmodellist   => this%modellist
+    this%MpiSol%lexchangelist => this%exchangelist
     !
-    ! -- loop over the models within this solution
-    do im=1,this%modellist%Count()
-      mp => GetNumericalModelFromList(this%modellist, im)
-      ! -- add model to local MPI model list
-      call this%MpiSol%mpi_addmodel(2, mp%name)
-      ! -- find the subdomain for this modell
-      i = ifind(MpiWorld%gmodelnames, mp%name)
-      isub = MpiWorld%gsubs(i)
-      ! -- add subdomain to local MPI subdomain list
-      call this%MpiSol%mpi_addsub(2, isub)
-    enddo
-    !
-    ! -- loop over exchanges
-    do ic=1,this%exchangelist%Count()
-      cp => GetNumericalExchangeFromList(this%exchangelist, ic)
-    enddo    
+    call this%MpiSol%mpi_local_exchange_init()
     !
     ! -- return
     return

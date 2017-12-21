@@ -40,10 +40,12 @@ module BaseSolutionModule
       class(BaseSolutionType) :: this
     end subroutine
 
-    subroutine slnmpiaddgmodel(this, mname) !JV
+    subroutine slnmpiaddgmodel(this, mname, idsoln) !JV
+      use KindModule, only: I4B !JV 
       import BaseSolutionType !JV
       class(BaseSolutionType) :: this !JV
       character(len=*), intent(in) :: mname !JV
+      integer(I4B), intent(in) :: idsoln !JV
     end subroutine !JV
     
     subroutine slnmpiinit(this, sname) !JV

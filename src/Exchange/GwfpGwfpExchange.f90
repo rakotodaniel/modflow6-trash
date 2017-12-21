@@ -61,6 +61,7 @@ module gwfpgwfpExchangeModule
     procedure          :: exg_da      => gwfp_gwfp_da
     procedure          :: exg_fp      => gwfp_gwfp_fp
     procedure          :: get_iasym   => gwfp_gwfp_get_iasym
+    procedure          :: get_m1m2    => gwfp_gwfp_get_m1m2
     procedure          :: allocate_scalars
     procedure          :: allocate_arrays
     procedure          :: read_options
@@ -1833,6 +1834,26 @@ subroutine gwfpexchange_create(filename, id, m1i, m2i, mname1i, mname2i, im,   &
     return
   end function gwfp_gwfp_get_iasym
 
+  subroutine gwfp_gwfp_get_m1m2(this, m1, m2)
+! ******************************************************************************
+! gwfp_gwfp_get_m1m2
+!   -- Get the pointer to gwfmodel1 and gwfmodel2.
+! ******************************************************************************
+!
+!    SPECIFICATIONS:
+! ------------------------------------------------------------------------------
+    ! -- dummy
+    class(gwfpExchangeType) :: this
+    type(GwfModelType), pointer, intent(out) :: m1, m2
+    ! -- local
+! ------------------------------------------------------------------------------
+    !
+    m1 => this%gwfpmodel1
+    m2 => this%gwfpmodel2
+    !
+    return
+  end subroutine gwfp_gwfp_get_m1m2
+  
   subroutine gwfp_gwfp_save_simvals(this)
 ! ******************************************************************************
 ! gwfp_gwfp_save_simvals

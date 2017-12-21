@@ -641,7 +641,7 @@ module SimulationCreateModule
               !
               ! -- Find the model id, and then get model
               mid = ifind(modelname_all, mname) !JV
-              call sp%slnmpiaddgmodel(mname) !JV
+              call sp%slnmpiaddgmodel(mname, isoln) !JV
               if(mid <= 0) then
                 write(errmsg, '(a,a)') 'Error.  Invalid modelname: ', &
                   trim(mname)

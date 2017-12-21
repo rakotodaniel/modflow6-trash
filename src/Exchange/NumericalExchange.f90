@@ -57,6 +57,7 @@ module NumericalExchangeModule
     procedure :: read_options
     procedure :: read_dimensions
     procedure :: get_iasym
+    procedure :: get_m1m2 !JV
   end type NumericalExchangeType
 
 contains
@@ -661,4 +662,12 @@ contains
     return
   end function GetNumericalExchangeFromList
 
+  subroutine get_m1m2(this, m1, m2) !JV
+    use GwfModule, only: GwfModelType
+    class(NumericalExchangeType) :: this !JV
+    type(GwfModelType), pointer, intent(out) :: m1, m2 !JV
+    !
+    return !JV
+  end subroutine get_m1m2 !JV
+  
 end module NumericalExchangeModule
