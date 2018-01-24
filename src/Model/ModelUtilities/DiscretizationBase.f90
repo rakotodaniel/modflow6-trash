@@ -476,7 +476,7 @@ module BaseDisModule
     return
   end subroutine connection_vector
     
-  subroutine allocate_scalars(this, name_model)
+  subroutine allocate_scalars(this, name_model, dis_type) !JV
 ! ******************************************************************************
 ! allocate_scalars -- Allocate and initialize scalar variables in this class
 ! ******************************************************************************
@@ -488,12 +488,13 @@ module BaseDisModule
     ! -- dummy
     class(DisBaseType) :: this
     character(len=*), intent(in) :: name_model
+    character(len=*), intent(in) :: dis_type !JV
     ! -- local
     character(len=LENORIGIN) :: origin
 ! ------------------------------------------------------------------------------
     !
     ! -- Assign origin name
-    origin = trim(adjustl(name_model)) // ' DIS'
+    write(origin,'(a,1x,a)') trim(adjustl(name_model)), trim(dis_type) !JV
     !
     ! -- Allocate
     allocate(this%origin)
