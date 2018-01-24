@@ -74,6 +74,8 @@
 		<File RelativePath="..\src\Exchange\GwfGwfExchange.f90"/>
 		<File RelativePath="..\src\Exchange\GwfpGwfpExchange.f90"/>
 		<File RelativePath="..\src\Exchange\MpiExchange.f90"/>
+		<File RelativePath="..\src\Exchange\MpiExchangeCol.f90"/>
+		<File RelativePath="..\src\Exchange\MpiExchangeGen.f90"/>
 		<File RelativePath="..\src\Exchange\NumericalExchange.f90"/></Filter>
 		<Filter Name="Model">
 		<Filter Name="Geometry">

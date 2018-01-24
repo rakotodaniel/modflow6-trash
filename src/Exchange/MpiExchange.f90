@@ -1,24 +1,28 @@
 module MpiExchangeModule
   use MpiExchangeGenModule, only: serialrun, writestd, partstr
   use KindModule, only: DP, I4B
+  use SimModule, only: ustop, store_error
   use ConstantsModule, only: LENPACKAGENAME, LENMODELNAME, LENORIGIN,          &
-                             LINELENGTH
+                             LENVARNAME, LINELENGTH
   use gwfModule, only: gwfModelType
-   use ListModule, only: ListType
+  use ListModule, only: ListType
   use MpiWrapper, only: mpiwrpinit, mpiwrpfinalize, mpiwrpnrproc, mpiwrpmyrank,&
                         mpiwrpbarrier, mpiwrpcommworld, mpiwrpcomm_size,       &
-                        mpiwrpcomm_rank, mpiwrpallgatherv
+                        mpiwrpcomm_rank, mpiwrpallgather, mpiwrpallgatherv,    &
+                        mpiwrpcolstruct, mpiwrptypefree, ColMemoryType
   
   implicit none
   
   private
   
   ! -- Public types
-  public MpiExchangeType
+  public :: MpiExchangeType
   ! -- Public variables
-  public MpiWorld
+  public :: MpiWorld
   ! -- Public functions
-  public mpi_initialize_world
+  public :: mpi_initialize_world
+  public :: mpi_dis_world
+  public :: mpi_set_dis_world
     
   ! -- Local types
   type :: MpiGwfCommInt
@@ -38,7 +42,7 @@ module MpiExchangeModule
     integer(I4B), dimension(:), allocatable                :: gidsoln       ! global solution ids
     integer                                                :: gnsub = 0     ! number of global subdomains
     integer(I4B), dimension(:), allocatable                :: gsubs         ! global subdomains
-    integer                                                :: lnmodel = 0   ! number of llobal models
+    integer                                                :: lnmodel = 0   ! number of local models
     character(len=LENMODELNAME), dimension(:), allocatable :: lmodelnames   ! local model names
     integer                                                :: lnsub = 0     ! number of local subdomains
     integer(I4B), dimension(:), allocatable                :: lsubs         ! model local subdomains
@@ -53,7 +57,7 @@ module MpiExchangeModule
     integer(I4B), dimension(:), pointer        :: topolia   => null() ! Topology IA array of size nrproc+1
     integer(I4B), dimension(:), pointer        :: topolja   => null() ! Topology JA array
     integer(I4B), pointer                      :: nrxp      => null() ! Number of exchange partners
-    type(MpiGwfCommInt), dimension(:), pointer :: xp     => null() ! MPI data structure point-to-point communication
+    type(MpiGwfCommInt), dimension(:), pointer :: lxch      => null() ! MPI data structure point-to-point communication
     character(len=50), pointer                 :: nrprocstr => null() ! Number of processes string
     integer(I4B), pointer                      :: npdigits  => null() ! Number of digits for nrproc
     character(len=50), pointer                 :: partstr   => null() ! Partition string
@@ -72,7 +76,7 @@ module MpiExchangeModule
   
   ! -- World communicator
   type(MpiExchangeType), pointer :: MpiWorld => null()
-    
+      
   save
   
   contains
@@ -85,10 +89,11 @@ module MpiExchangeModule
 !    SPECIFICATIONS:
 ! ------------------------------------------------------------------------------
     ! -- modules
-    use MemoryManagerModule, only: mem_allocate
+    use MemoryManagerModule, only: mem_allocate !, mem_get_info
     ! -- dummy
     ! -- local
     character(len=LENORIGIN) :: origin
+    integer(I4B) :: memitype, isize
 ! ------------------------------------------------------------------------------
     !
     ! -- Allocate MpiWorld object
@@ -109,13 +114,16 @@ module MpiExchangeModule
     MpiWorld%myrank = mpiwrpcomm_rank(MpiWorld%comm)
     MpiWorld%myproc = MpiWorld%myrank + 1
     !
+    
     if (MpiWorld%nrproc == 1) then
       serialrun = .true.
     else
       serialrun = .false.
     endif
     ! @@@@@@ DEBUG
-    serialrun = .false.
+    !serialrun = .false.
+    ! @@@@@@ DEBUG
+    !
     if (MpiWorld%myrank == 0) then
       writestd = .true.
     else
@@ -130,7 +138,7 @@ module MpiExchangeModule
     return
   end subroutine mpi_initialize_world
   
- subroutine mpi_create_comm(this)
+  subroutine mpi_create_comm(this)
 ! ******************************************************************************
 ! MPI communicator construction.
 ! ******************************************************************************
@@ -217,7 +225,9 @@ module MpiExchangeModule
     character(len=*), intent(inout) :: f
     ! -- local
 ! ------------------------------------------------------------------------------
-    if (serialrun) return
+    if (serialrun) then
+      return
+    endif
     !
     write(f,'(3a)') trim(f),'.',trim(this%partstr)
     !
@@ -262,37 +272,94 @@ module MpiExchangeModule
     use BaseModelModule, only: GetBaseModelFromList
     use ArrayHandlersModule, only: ifind
     use GwfModule, only: GwfModelType
+    use MemoryManagerModule, only: mem_allocate
     ! -- dummy
     class(MpiExchangeType) :: this
     ! -- local
+    character(len=LENORIGIN) :: origin
     class(NumericalModelType), pointer :: mp
     class(NumericalExchangeType), pointer :: cp
-    integer(I4B) :: im, ic, i, isub1, isub2
+    integer(I4B) :: nm, im, ic, i, isub1, isub2, nja
     type(GwfModelType), pointer :: m1, m2
+    character(len=LINELENGTH) :: errmsg
 ! ------------------------------------------------------------------------------
     !
-    ! -- loop over the models within this solution
-    do im=1,this%lmodellist%Count()
+    if (serialrun) then
+      return
+    endif
+    !
+    ! -- Allocate scalars
+    origin = this%name
+    call mem_allocate(this%comm,   'COMM',   origin)
+    call mem_allocate(this%nrproc, 'NRPROC', origin)
+    call mem_allocate(this%myrank, 'MYRANK', origin)
+    call mem_allocate(this%myproc, 'MYPROC', origin)
+    call mem_allocate(this%nrxp,   'NRXP',   origin)
+    !
+    ! TODO: create communicator group; for now same as MPI_WORLD
+    this%comm   = MpiWorld%comm
+    this%nrproc = MpiWorld%nrproc
+    this%myrank = MpiWorld%myrank
+    this%myproc = MpiWorld%myproc
+    !
+    ! -- loop over my local models within this solution
+    nm = this%lmodellist%Count()
+    do im=1,nm
       mp => GetNumericalModelFromList(this%lmodellist, im)
       ! -- add model to local MPI model list
       call this%mpi_addmodel(2, mp%name)
-      ! -- find the subdomain for this modell
+      ! -- find the global subdomain number for this model
       i = ifind(MpiWorld%gmodelnames, mp%name)
       isub1 = MpiWorld%gsubs(i)
       ! -- add subdomain to local MPI subdomain list
       call this%mpi_addsub(2, isub1)
     enddo
     !
-    ! -- loop over exchanges
+    ! -- loop over exchanges and count exchange partners within this solution
+    this%nrxp = 0
     do ic=1,this%lexchangelist%Count()
       cp => GetNumericalExchangeFromList(this%lexchangelist, ic)
       call cp%get_m1m2(m1, m2)
       ! -- Add to interface
       if (cp%m2_ishalo) then
+        this%nrxp = this%nrxp + 1
+        ! -- Get my model subdomain number and check
         i = ifind(MpiWorld%gmodelnames, m1%name)
         isub1 = MpiWorld%gsubs(i)
+        if (isub1 /= this%myproc) then
+          write(errmsg,'(a)') 'Program error in mpi_local_exchange_init.'
+          call store_error(errmsg)
+          call ustop()
+        endif
         i = ifind(MpiWorld%gmodelnames, m2%name)
         isub2 = MpiWorld%gsubs(i)
+      end if
+    end do
+    !
+    ! -- Allocate local communication data structure
+    if (this%nrxp > 0) then
+      allocate(this%lxch(this%nrxp))
+    endif
+    
+    ! -- loop over exchanges and initialize
+    this%nrxp = 0
+    do ic=1,this%lexchangelist%Count()
+      cp => GetNumericalExchangeFromList(this%lexchangelist, ic)
+      call cp%get_m1m2(m1, m2)
+      ! -- Add to interface
+      if (cp%m2_ishalo) then
+        this%nrxp = this%nrxp + 1
+        i = ifind(MpiWorld%gmodelnames, m2%name)
+        isub2 = MpiWorld%gsubs(i)
+        ! -- allocate and set local exchange partner
+        allocate(this%lxch(this%nrxp)%xprnk)
+        this%lxch(this%nrxp)%xprnk = isub2 - 1
+        ! --  allocate and set pointer to sending model (m1)
+        allocate(this%lxch(this%nrxp)%sndgwfmodel1)
+        this%lxch(this%nrxp)%sndgwfmodel1 => m1
+        ! --  allocate and set pointer to receiving model (m2)
+        allocate(this%lxch(this%nrxp)%recgwfmodel2) 
+        this%lxch(this%nrxp)%recgwfmodel2 => m2
       end if
       write(*,*) '@@@ m1:',m1%name
       write(*,*) '@@@ m2:',m2%name, cp%m2_ishalo
@@ -495,61 +562,297 @@ module MpiExchangeModule
     return
   end subroutine mpi_da
 
-  !  subroutine mpi_get_dis_world(nlm, lmidx, lmdistype, ngm, gmdistype)
-!! ******************************************************************************
-!! This subroutine gathers DIS information for all models.
-!! ******************************************************************************
-!!
-!!    SPECIFICATIONS:
-!! ------------------------------------------------------------------------------
-!    ! -- modules
-!    ! -- dummy
-!    integer, intent(in)  :: nlm
-!    integer, dimension(nlm), intent(in) :: lmidx
-!    integer, dimension(nlm), intent(in) :: lmdistype
-!    integer, intent(in)  :: ngm
-!    integer, dimension(ngm), intent(out) :: gmdistype
-!    ! -- local
-!    integer :: iproc, jproc, scnt, i, j
-!    integer, dimension(:), allocatable :: sbuf, rbuf, rcnt, offsets
-!! ------------------------------------------------------------------------------
-!    !
-!    ! -- allocate work arrays
-!    allocate(sbuf(ngm), rbuf(world_nrproc*ngm))
-!    allocate(rcnt(world_nrproc), offsets(world_nrproc))
-!    !
-!    scnt = ngm
-!    sbuf = -1
-!    do i = 1, nlm
-!      j = lmidx(i)
-!      sbuf(j) = lmdistype(i)
-!    enddo
-!    !
-!    ! -- offsets
-!    offsets(1) = 0
-!    do iproc = 1, world_nrproc-1
-!      offsets(iproc+1) = offsets(iproc) + rcnt(iproc)
-!    end do
-!    !
-!    ! -- MPI all-to-all
-!    call mpiwrpallgatherv(world_comm, sbuf, scnt, rbuf, rcnt, offsets)
-!    !
-!    gmdistype = -1
-!    do iproc = 1, world_nrproc
-!      i = offsets(iproc)
-!      do jproc = 1, world_nrproc
-!        j = rbuf(i+jproc)
-!        if (j > 0) then
-!          gmdistype(jproc) = j
-!        endif
-!      enddo
-!    enddo
-!    !
-!    ! -- deallocate work arrays
-!    deallocate(sbuf, rbuf, rcnt, offsets)
-!    !
-!    ! -- return
-!    return
-!  end subroutine mpi_get_dis_world
+  subroutine mpi_dis_world(iopt)
+! ******************************************************************************
+! This subroutine gathers DIS information for all models.
+! ******************************************************************************
+!
+!    SPECIFICATIONS:
+! ------------------------------------------------------------------------------
+    ! -- modules
+    use MpiExchangeColModule, only: ciopt, n_recv, cmt_recv
+    use MemoryManagerModule, only: mem_get_ptr, mem_setval
+    use MemoryTypeModule, only: MemoryType
+    use BaseModelModule, only: BaseModelType, GetBaseModelFromList  
+    use ListsModule, only: basemodellist
+    use NumericalModelModule, only: NumericalModelType
+    ! -- dummy
+    integer, intent(in) :: iopt
+    ! -- local
+    integer, parameter :: idis  = 1 
+    integer, parameter :: idisv = 2 
+    integer, parameter :: idisu = 3 
+    !
+    character(len=1) :: cdum
+    character(len=4) :: dis_type
+    integer :: im, is, iact
+    class(BaseModelType), pointer :: mb 
+    class(NumericalModelType), pointer :: mp
+    type(MemoryType), pointer :: mt
+    !
+    integer, parameter :: cntypes = 6
+    integer :: ierr, i, n_send, newtype
+    integer, dimension(1) :: iwrk
+    integer, dimension(:), allocatable :: recvcounts, displs
+    type(ColMemoryType), dimension(:), allocatable :: cmt_send
+    
+    integer :: rank
+! ------------------------------------------------------------------------------
+    if (serialrun) then
+      !return !@@@@@ DEBUG 
+    endif
+    
+    do iact = 1, 2
+      is = 0
+      do im = 1, basemodellist%Count()
+        mb => GetBaseModelFromList(basemodellist, im)
+        select type (mb)
+        class is (NumericalModelType)
+          mp => mb
+        end select  
+        read(mp%dis%origin,*) cdum, dis_type
+        if (iact == 1) then
+          select case (dis_type)
+          case ('DIS', 'DISV')
+            if (iopt == 1) then
+              is = is + 1
+            else  
+              is = is + 4
+            endif
+          case ('DISU')
+            if (iopt == 1) then
+              is = is + 1
+            else
+              is = is + 2
+            endif
+          end select
+        else
+        select case (dis_type)
+          case ('DIS')
+            if (iopt == 1) then
+              !call mem_get_ptr('NEQ', 'GWF_MODEL_1', mt)
+              !mp%neq = 456
+              !call mem_get_ptr('NEQ', 'GWF_MODEL_1', mt)
+              !call mem_setval(789,'NEQ','GWF_MODEL_1')
+              !call mem_get_ptr('NEQ', 'GWF_MODEL_1', mt)
+              !mp%neq = 456
+              !call mem_get_ptr('NEQ', 'GWF_MODEL_1', mt)
+              call mem_get_ptr('DNDIM', mp%dis%origin, mt)
+              is = is + 1
+              call mpi_to_colmem(mt, cmt_send(is))
+            else
+              call mem_get_ptr('NLAY', mp%dis%origin, mt)
+              is = is + 1
+              call mpi_to_colmem(mt, cmt_send(is))
+              call mem_get_ptr('NROW', mp%dis%origin, mt)
+              is = is + 1
+              call mpi_to_colmem(mt, cmt_send(is))
+              call mem_get_ptr('NCOL', mp%dis%origin, mt)
+              is = is + 1
+              call mpi_to_colmem(mt, cmt_send(is))
+              call mem_get_ptr('MSHAPE', mp%dis%origin, mt)
+              is = is + 1
+              call mpi_to_colmem(mt, cmt_send(is))
+            endif
+          case ('DISV')
+            if (iopt == 1) then
+              call mem_get_ptr('DNDIM',  mp%dis%origin, mt)
+              is = is + 1
+              call mpi_to_colmem(mt, cmt_send(is))
+            else
+              call mem_get_ptr('NLAY',  mp%dis%origin, mt)
+              is = is + 1
+              call mpi_to_colmem(mt, cmt_send(is))
+              call mem_get_ptr('NCPL',  mp%dis%origin, mt)
+              is = is + 1
+              call mpi_to_colmem(mt, cmt_send(is))
+              call mem_get_ptr('NVERT', mp%dis%origin, mt)
+              is = is + 1
+              call mpi_to_colmem(mt, cmt_send(is))
+              call mem_get_ptr('MSHAPE', mp%dis%origin, mt)
+              is = is + 1
+              call mpi_to_colmem(mt, cmt_send(is))
+            endif
+          case ('DISU')
+            if (iopt == 1) then
+              call mem_get_ptr('DNDIM', mp%dis%origin, mt)
+              is = is + 1
+              call mpi_to_colmem(mt, cmt_send(is))
+            else  
+              call mem_get_ptr('NVERT', mp%dis%origin, mt)
+              is = is + 1
+              call mpi_to_colmem(mt, cmt_send(is))
+              call mem_get_ptr('MSHAPE', mp%dis%origin, mt)
+              is = is + 1
+              call mpi_to_colmem(mt, cmt_send(is))
+            endif
+          end select
+        endif
+      enddo
+      if (iact == 1) then
+        n_send = is
+        if (n_send > 0) then
+          allocate(cmt_send(n_send))
+        endif
+      endif
+    enddo
+    !
+    ! -- gather sizes
+    allocate(recvcounts(MpiWorld%nrproc), displs(MpiWorld%nrproc))
+    iwrk(1) = n_send
+    call mpiwrpallgather(MpiWorld%comm, iwrk, 1, recvcounts, 1)
+    n_recv = sum(recvcounts)
+    if (allocated(cmt_recv)) then
+      deallocate(cmt_recv)
+    endif
+    allocate(cmt_recv(n_recv))
+    displs(1) = 0
+    do i = 2, MpiWorld%nrproc
+      displs(i) = displs(i-1) + recvcounts(i-1)
+    end do
+    ! -- create derived type
+    call mpiwrpcolstruct(newtype)
+    ! -- gather data
+    call mpiwrpallgatherv(MpiWorld%comm, cmt_send, n_send, newtype, cmt_recv,   &
+                          recvcounts, newtype, displs)
+    ! -- DEBUG
+    do rank = 0, MpiWorld%nrproc-1
+      if (MpiWorld%myrank == rank) then
+        write(*,*) '=== send myrank', rank
+        do i = 1, n_send
+          write(*,'(a,1x,a,1x,i)') trim(cmt_send(i)%name), trim(cmt_send(i)%origin), cmt_send(i)%intsclr  
+        end do
+        write(*,*) '=== recv myrank', rank
+        do i = 1, n_recv
+          write(*,'(a,1x,a,1x,i)') trim(cmt_recv(i)%name), trim(cmt_recv(i)%origin), cmt_recv(i)%intsclr 
+        end do
+      endif
+      call mpiwrpbarrier(MpiWorld%comm)
+    enddo
+    !
+    ! -- clean up
+    call mpiwrptypefree(newtype)
+    deallocate(cmt_send, recvcounts, displs)
+    ciopt = iopt
+    !
+    ! -- return
+    return
+  end subroutine mpi_dis_world
 
+  subroutine mpi_set_dis_world()
+! ******************************************************************************
+! This subroutine sets the DIS scalars for the halo (m2) models.
+! ******************************************************************************
+!
+!    SPECIFICATIONS:
+! ------------------------------------------------------------------------------
+    ! -- modules
+    use MpiExchangeColModule, only: ciopt, n_recv, cmt_recv
+    use MemoryTypeModule, only: ilogicalsclr, iintsclr, idblsclr,               & 
+                                iaint1d, iaint2d,                               & 
+                                iadbl1d, iadbl2d
+    use MemoryManagerModule, only: mem_setval
+    use ArrayHandlersModule, only: ExpandArray, ifind
+    use BaseExchangeModule, only: BaseExchangeType, GetBaseExchangeFromList
+    use NumericalExchangeModule, only: NumericalExchangeType
+    use ListsModule, only: baseexchangelist
+    ! -- dummy
+    ! -- local
+    class(BaseExchangeType),   pointer :: bep
+    class(NumericalExchangeType), pointer :: nep
+    type(GwfModelType), pointer :: m1, m2
+    character(len=LENVARNAME)   :: name        !name of the array
+    character(len=LENORIGIN)    :: origin      !name of origin
+    character(len=LENMODELNAME) :: modelname   !name of origin
+    integer :: i, ic, n, m
+    character(len=LENMODELNAME), allocatable, dimension(:) :: modelname_halo
+! ------------------------------------------------------------------------------
+    !
+    n = 0
+    do ic=1,baseexchangelist%Count()
+      bep => GetBaseExchangeFromList(baseexchangelist, ic)
+      select type (bep)
+      class is (NumericalExchangeType)
+        nep => bep
+      end select      
+      call nep%get_m1m2(m1, m2)
+      if (nep%m2_ishalo) then
+        m = ifind(modelname_halo, m2%name)
+        if (m < 0) then
+          n = n + 1
+          call ExpandArray(modelname_halo)
+          modelname_halo(n) = m2%name
+        endif
+      endif
+    enddo 
+    !
+    do i = 1, n_recv
+      name   = cmt_recv(i)%name
+      origin = cmt_recv(i)%origin
+      read(origin,*) modelname
+      m = ifind(modelname_halo, modelname)
+      if (m > 0) then
+        select case(cmt_recv(i)%memitype)
+          case(iintsclr)
+            write(*,*) 'Setting integer for model '//trim(modelname)//' '//trim(name)//' '//trim(origin)
+            call mem_setval(cmt_recv(i)%intsclr, name, origin)
+          case(iaint1d)
+            if (MpiWorld%myrank == 0) then
+              write(*,*) MpiWorld%myrank
+              write(*,*) 'Setting array for model '//trim(modelname)//' '//trim(name)//' '//trim(origin)
+            endif
+            call mem_setval(cmt_recv(i)%aint1d, name, origin)
+        end select
+      endif
+    end do
+    !
+    ! -- cleanup
+    deallocate(modelname_halo)
+    deallocate(cmt_recv)
+  
+    ! -- return
+    return
+  end subroutine mpi_set_dis_world
+  
+  subroutine mpi_to_colmem(mt, cmt)
+! ******************************************************************************
+! Convert to collective MemoryType
+! ******************************************************************************
+!
+!    SPECIFICATIONS:
+! ------------------------------------------------------------------------------
+    ! -- modules
+    use ConstantsModule, only: DZERO  
+    use MemoryTypeModule, only: MemoryType
+    ! -- dummy
+    type(MemoryType), intent(in) :: mt
+    type(ColMemoryType), intent(out) :: cmt
+    ! -- local
+! ------------------------------------------------------------------------------
+    cmt%name     = mt%name
+    cmt%origin   = mt%origin
+    cmt%memitype = mt%memitype
+    if (associated(mt%logicalsclr)) then
+      cmt%logicalsclr = mt%logicalsclr
+    else
+      cmt%logicalsclr = .false.
+    endif  
+    if (associated(mt%intsclr)) then
+      cmt%intsclr = mt%intsclr
+    else
+      cmt%intsclr = 0
+    endif
+    if (associated(mt%dblsclr)) then
+      cmt%dblsclr = mt%dblsclr
+    else
+      cmt%dblsclr = DZERO
+    endif
+    if (associated(mt%aint1d)) then
+      cmt%aint1d = mt%aint1d
+    else
+      cmt%aint1d = 0
+    endif
+    ! -- return
+    return
+  end subroutine mpi_to_colmem  
 end module MpiExchangeModule

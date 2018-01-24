@@ -28,7 +28,8 @@ program mf6
   use TdisModule,             only: tdis_tu, tdis_da,                          &
                                     endofsimulation
   use MpiExchangeGenModule,   only: mpi_initialize, serialrun, writestd !JV
-  use MpiExchangeModule,      only: mpi_initialize_world, MpiWorld !JV 
+  use MpiExchangeModule,      only: mpi_initialize_world, mpi_dis_world,       & !JV
+                                    mpi_set_dis_world, MpiWorld !JV 
   implicit none
   ! -- local
   class(SolutionGroupType), pointer :: sgp
@@ -77,8 +78,9 @@ program mf6
     call mp%model_df()
   enddo
   !
-  ! TODO: communicate scalars DIS
-  !stop
+  ! -- Collective MPI communication scalars DIS
+  call mpi_dis_world(2) !JV
+  call mpi_set_dis_world() !JV
   !
   ! -- Define each exchange
   do ic = 1, baseexchangelist%Count()

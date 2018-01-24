@@ -4,6 +4,10 @@ module MemoryManagerModule
   use ConstantsModule,        only: DZERO, LENORIGIN, LENVARNAME
   use SimModule,              only: store_error, ustop
   use MemoryTypeModule,       only: MemoryTSType, MemoryType
+  use MemoryTypeModule,       only: ilogicalsclr, iintsclr, idblsclr,          & !JV
+                                    iaint1d, iaint2d,                          & !JV
+                                    iadbl1d, iadbl2d,                          & !JV
+                                    iats1d                                       !JV
   use MemoryListModule,       only: MemoryListType
   
   implicit none
@@ -16,6 +20,8 @@ module MemoryManagerModule
   public :: mem_usage
   public :: mem_da
   public :: mem_set_print_option
+  public :: mem_get_ptr !JV
+  public :: mem_setval !JV
     
   type(MemoryListType) :: memorylist
   integer(I8B) :: nvalues_alogical = 0
@@ -55,6 +61,10 @@ module MemoryManagerModule
                      deallocate_ts1d
   end interface mem_deallocate
 
+  interface mem_setval !JV
+    module procedure setval_int, setval_int1d !JV
+  end interface mem_setval !JV
+  
 contains
   
   subroutine allocate_error(varname, origin, istat, errmsg, isize)
@@ -92,6 +102,7 @@ contains
     mt%isize = 1
     mt%name = name
     mt%origin = origin
+    mt%memitype = ilogicalsclr !JV
     write(mt%memtype, "(a)") 'LOGICAL'
     call memorylist%add(mt)
   end subroutine allocate_logical
@@ -118,6 +129,7 @@ contains
     mt%isize = 1
     mt%name = name
     mt%origin = origin
+    mt%memitype = iintsclr !JV
     write(mt%memtype, "(a)") 'INTEGER'
     call memorylist%add(mt)
   end subroutine allocate_int
@@ -145,6 +157,7 @@ contains
     mt%isize = isize
     mt%name = name
     mt%origin = origin
+    mt%memitype = iaint1d !JV
     write(mt%memtype, "(a,' (',i0,')')") 'INTEGER', isize
     call memorylist%add(mt)
   end subroutine allocate_int1d
@@ -175,6 +188,7 @@ contains
     mt%isize = isize
     mt%name = name
     mt%origin = origin
+    mt%memitype = iaint2d !JV
     write(mt%memtype, "(a,' (',i0,',',i0,')')") 'INTEGER', ncol, nrow
     call memorylist%add(mt)
   end subroutine allocate_int2d
@@ -201,6 +215,7 @@ contains
     mt%isize = 1
     mt%name = name
     mt%origin = origin
+    mt%memitype = idblsclr !JV
     write(mt%memtype, "(a)") 'DOUBLE'
     call memorylist%add(mt)
   end subroutine allocate_dbl
@@ -228,6 +243,7 @@ contains
     mt%isize = isize
     mt%name = name
     mt%origin = origin
+    mt%memitype = iadbl1d !JV
     write(mt%memtype, "(a,' (',i0,')')") 'DOUBLE', isize
     call memorylist%add(mt)
   end subroutine allocate_dbl1d
@@ -258,6 +274,7 @@ contains
     mt%isize = isize
     mt%name = name
     mt%origin = origin
+    mt%memitype = iadbl2d !JV
     write(mt%memtype, "(a,' (',i0,',',i0,')')") 'DOUBLE', ncol, nrow
     call memorylist%add(mt)
   end subroutine allocate_dbl2d
@@ -294,6 +311,7 @@ contains
     mt%isize = isize
     mt%name = name
     mt%origin = origin
+    mt%memitype = iats1d !JV
     write(mt%memtype, "(a,' (',i0,')')") 'TIMESERIES', isize
     call memorylist%add(mt)
   end subroutine allocate_ts1d
@@ -988,7 +1006,7 @@ contains
     ! -- Calculate and write total memory allocation
     bytesmb = (nvalues_aint * I4B + &
                nvalues_adbl * DP + &
-               nvalues_ats * DP) / 1000000.d0
+               nvalues_ats * DP) / 1048576.d0 !JV 1024*1024
     write(iout, *)
     write(iout, fmt) 'Number of allocated integer variables:   ', nvalues_aint
     write(iout, fmt) 'Number of allocated real variables:    ', nvalues_adbl + nvalues_ats
@@ -1028,4 +1046,115 @@ contains
     return
   end subroutine mem_unique_origins
   
+
+ subroutine mem_get_ptr(name, origin, mt) !JV
+! ******************************************************************************
+! Get information for a variable.
+! ******************************************************************************
+!
+!    SPECIFICATIONS:
+! ------------------------------------------------------------------------------
+    ! -- dummy
+    character(len=*), intent(in) :: name
+    character(len=*), intent(in) :: origin
+    type(MemoryType), pointer, intent(out) :: mt
+    ! -- local
+    logical :: found
+    integer(I4B) :: ipos
+! ------------------------------------------------------------------------------
+    
+    ! -- Find and assign mt
+    mt => null()
+    found = .false.
+    do ipos = 1, memorylist%count()
+      mt => memorylist%Get(ipos)
+      if(mt%name == name .and. mt%origin == origin) then
+        found = .true.
+        exit
+      endif
+    enddo
+    !
+    if(.not. found) call allocate_error(name, origin, 0,                       &
+      'Variable not found in MemoryManager', 0)
+    !
+    ! -- return
+    return
+ end subroutine mem_get_ptr
+ 
+ subroutine setval_int(intsclr, name, origin) !JV
+! ******************************************************************************
+! Get information for a variable.
+! ******************************************************************************
+!
+!    SPECIFICATIONS:
+! ------------------------------------------------------------------------------
+    ! -- dummy
+    integer(I4B) :: intsclr
+    character(len=*), intent(in) :: name
+    character(len=*), intent(in) :: origin
+    ! -- local
+    logical :: found
+    integer(I4B) :: ipos
+    type(MemoryType), pointer :: mt
+! ------------------------------------------------------------------------------
+ 
+    ! -- Find and assign mt
+    mt => null()
+    found = .false.
+    do ipos = 1, memorylist%count()
+      mt => memorylist%Get(ipos)
+      if(mt%name == name .and. mt%origin == origin) then
+        found = .true.
+        exit
+      endif
+    enddo
+    !
+    if(.not. found) call allocate_error(name, origin, 0,                       &
+      'Variable not found in MemoryManager', 0)
+    mt%intsclr = intsclr
+    
+    ! -- return
+    return
+ end subroutine setval_int
+ 
+ subroutine setval_int1d(aint, name, origin) !JV
+! ******************************************************************************
+! Get information for a variable.
+! ******************************************************************************
+!
+!    SPECIFICATIONS:
+! ------------------------------------------------------------------------------
+    ! -- dummy
+    integer(I4B), dimension(*), intent(in) :: aint
+    character(len=*), intent(in) :: name
+    character(len=*), intent(in) :: origin
+    ! -- local
+    logical :: found
+    integer(I4B) :: ipos, i
+    type(MemoryType), pointer :: mt
+! ------------------------------------------------------------------------------
+ 
+    ! -- Find and assign mt
+    mt => null()
+    found = .false.
+    do ipos = 1, memorylist%count()
+      mt => memorylist%Get(ipos)
+      if(mt%name == name .and. mt%origin == origin) then
+        found = .true.
+        exit
+      endif
+    enddo
+    !
+    if(.not. found) call allocate_error(name, origin, 0,                       &
+      'Variable not found in MemoryManager', 0)
+    
+    do i = 1, size(mt%aint1d)
+      mt%aint1d(i) = aint(i)
+    enddo
+    !
+    ! -- return
+    return
+ end subroutine setval_int1d
+
+ 
 end module MemoryManagerModule

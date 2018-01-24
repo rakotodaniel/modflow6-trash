@@ -1,5 +1,8 @@
 module MpiWrapper
   
+  use ConstantsModule, only: LENORIGIN, LENVARNAME
+  use KindModule, only: DP, I4B    
+  
   implicit none
  
 #ifdef MPI_PARALLEL
@@ -20,14 +23,27 @@ module MpiWrapper
   double precision, dimension(mpiwrprbuf_size) :: mpiwrprbufd
   integer, dimension(1000) :: rreq, sreq
   integer :: lenbuf
-
+  
+  type ColMemoryType
+    character(len=LENVARNAME)  :: name        !name of the array
+    character(len=LENORIGIN)   :: origin      !name of origin
+    integer(I4B)               :: memitype    !integer type
+    logical                    :: logicalsclr !logical
+    integer(I4B)               :: intsclr     !integer
+    real(DP)                   :: dblsclr     !double
+    integer(I4B), dimension(3) :: aint1d      !1d integer array
+  end type ColMemoryType
+  
   public :: mpiwrpcomm_size, mpiwrpcomm_rank, mpiwrpinit, mpiwrpbarrier
   public :: mpiwrpfinalize, mpiwrpcommworld
   public :: mpiwrpnrproc, mpiwrpmyrank
   public :: mpiwrpisend, mpiwrpallsum
-  public :: mpiwrpallgatherv, mpiwrpcommgroup
+  public :: mpiwrpallgather, mpiwrpallgatherv, mpiwrpcommgroup
   public :: mpiwrpgroupincl, mpiwrpcommcreate
   public :: mpiwrpgrouprank
+  public :: mpiwrpcolstruct
+  public :: ColMemoryType
+  public :: mpiwrptypefree
   
   save
   
@@ -39,8 +55,13 @@ module MpiWrapper
     module procedure mpiwrpallsumr, mpiwrpallsumd
   end interface
   
+  interface mpiwrpallgather
+    module procedure mpiwrpallgatheri
+  end interface 
+  
   interface mpiwrpallgatherv
-    module procedure mpiwrpallgathervi, mpiwrpallgathervd
+    module procedure mpiwrpallgathervi, mpiwrpallgathervd,                      &
+                     mpiwrpallgathervcol 
   end interface
   
   contains
@@ -362,9 +383,66 @@ module MpiWrapper
     return
   end subroutine mpiwrperror
 
+  subroutine mpiwrpallgatheri(comm, gsbuf, gscnt, grbuf, grcnt)
+! ******************************************************************************
+! Gathers integer values into specified memory
+! locations from a group of processes and broadcasts the
+! gathered data to all processes.
+! ******************************************************************************
+!
+!    SPECIFICATIONS:
+! ------------------------------------------------------------------------------
+    ! -- modules
+    ! -- dummy
+    integer :: comm, gscnt
+    integer :: grcnt
+    integer, dimension(*) :: gsbuf, grbuf
+    ! -- local
+    integer :: ierror, i, k
+! ------------------------------------------------------------------------------
+#ifdef MPI_PARALLEL
+    call mpi_allgather(gsbuf, gscnt, mpi_integer,                               &
+                       grbuf, grcnt, mpi_integer,                               &
+                       comm, ierror)
+#endif
+    ! -- return
+    return
+  end subroutine mpiwrpallgatheri
+
+  subroutine mpiwrpallgathervcol(comm, gsbuf, gscnt, gstype, grbuf, grcnt,      &
+                                 grtype, offsets)
+! ******************************************************************************
+! Gathers integer values into specified memory
+! locations from a group of processes and broadcasts the
+! gathered data to all processes.
+! ******************************************************************************
+!
+!    SPECIFICATIONS:
+! ------------------------------------------------------------------------------
+    ! -- modules
+    ! -- dummy
+    integer :: comm, gscnt, gstype, grtype
+    integer, dimension(*) :: grcnt
+    type(ColMemoryType), dimension(*) :: gsbuf
+    type(ColMemoryType), dimension(*) :: grbuf
+    integer, dimension(*) :: offsets
+
+    ! -- local
+    integer :: ierror, i, k
+! ------------------------------------------------------------------------------
+#ifdef MPI_PARALLEL
+    call mpi_allgatherv(gsbuf, gscnt, gstype,                                  &
+                        grbuf, grcnt, offsets, grtype,                         &
+                        comm, ierror)
+    !
+#endif
+    ! -- return
+    return
+  end subroutine mpiwrpallgathervcol
+  
   subroutine mpiwrpallgathervi(comm, gsbuf, gscnt, grbuf, grcnt, offsets)
 ! ******************************************************************************
-! Gathers double values into specified memory
+! Gathers integer values into specified memory
 ! locations from a group of processes and broadcasts the
 ! gathered data to all processes.
 ! ******************************************************************************
@@ -531,5 +609,85 @@ module MpiWrapper
     ! -- return
     return
   end subroutine mpiwrpgrouprank
+
+  subroutine mpiwrpcolstruct(newtype)
+! ******************************************************************************
+! Create a new MPI data type.
+! ******************************************************************************
+!
+!    SPECIFICATIONS:
+! ------------------------------------------------------------------------------
+    ! -- modules
+    use ConstantsModule, only: LENORIGIN, LENVARNAME
+    use KindModule, only: DP, I4B    
+    ! -- dummy
+    integer, intent(out) :: newtype
+    ! -- local
+    type(ColMemoryType) :: cmtdum
+    
+    integer, dimension(7) :: types, blocklengths
+    integer(KIND=MPI_ADDRESS_KIND), dimension(7) :: displacements
+    integer(KIND=MPI_ADDRESS_KIND) :: base
+    
+    integer :: i, ierr 
+! ------------------------------------------------------------------------------
+#ifdef MPI_PARALLEL
+
+    ! -- set-up derived MPI data type 
+    types(1) = MPI_CHARACTER
+    types(2) = MPI_CHARACTER
+    types(3) = MPI_INTEGER
+    types(4) = MPI_INTEGER
+    types(5) = MPI_REAL
+    types(6) = MPI_DOUBLE
+    types(7) = MPI_INTEGER
+    blocklengths(1)  = LENVARNAME
+    blocklengths(2)  = LENORIGIN
+    blocklengths(3)  = 1
+    blocklengths(4)  = 1
+    blocklengths(5)  = 1
+    blocklengths(6)  = 1
+    blocklengths(7)  = 3
+    call MPI_GET_ADDRESS(cmtdum%name,       displacements(1), ierr)
+    call MPI_GET_ADDRESS(cmtdum%origin,     displacements(2), ierr)
+    call MPI_GET_ADDRESS(cmtdum%memitype,   displacements(3), ierr)
+    call MPI_GET_ADDRESS(cmtdum%logicalsclr,displacements(4), ierr)
+    call MPI_GET_ADDRESS(cmtdum%intsclr,    displacements(5), ierr)
+    call MPI_GET_ADDRESS(cmtdum%dblsclr,    displacements(6), ierr)
+    call MPI_GET_ADDRESS(cmtdum%aint1d,     displacements(7), ierr)
+    base = displacements(1)
+    do i = 1, 7
+      displacements(i) = displacements(i) - base
+    enddo
+    ! -- create and commit datatype
+    call MPI_TYPE_CREATE_STRUCT(7, blocklengths, displacements, types, newtype, ierr)
+    call MPI_TYPE_COMMIT(newtype, ierr)
+#else
+    call mpiwrperror(comm, 'mpiwrpstruct', 'invalid operation')
+#endif
+    ! -- return
+    return
+  end subroutine mpiwrpcolstruct
+
+  subroutine mpiwrptypefree(newtype)
+! ******************************************************************************
+! Create a new MPI data type.
+! ******************************************************************************
+!
+!    SPECIFICATIONS:
+! ------------------------------------------------------------------------------
+    ! -- modules
+    ! -- dummy
+    integer, intent(in) :: newtype
+    ! -- local
+    integer :: ierr
+! ------------------------------------------------------------------------------
+#ifdef MPI_PARALLEL
+  
+   call MPI_Type_free(newtype, ierr)
+#endif
+    ! -- return
+    return
+  end subroutine mpiwrptypefree
   
 end module MpiWrapper

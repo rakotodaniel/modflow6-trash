@@ -324,11 +324,12 @@ module GwfModule
     use GwfNpfModule,               only: npf_cr
     use Xt3dModule,                 only: xt3d_cr
     use GwfMvrModule,               only: mvr_cr
+    use MpiExchangeColModule,       only: mpi_get_distype
     ! -- dummy
     integer(I4B), intent(in)      :: id
     character(len=*), intent(in)  :: modelname
     ! -- local
-    integer(I4B)                  :: indis6, indisu6, indisv6
+    logical                       :: ldis, ldisu, ldisv
     type(GwfModelType), pointer   :: this
     class(BaseModelType), pointer :: model
     integer :: in_dum, iout_dum
@@ -350,19 +351,20 @@ module GwfModule
     in_dum = -1
     iout_dum = -1
     !
-    ! -- TODO: to be set by MPI Allgather exchange
-    indis6 = 1
-    indisu6 = 0
-    indisv6 = 0
+    ! -- Get the discretization type
+    call mpi_get_distype(modelname, ldis, ldisu, ldisv)
     !
     ! -- Create discretization object
-    if(indis6 > 0) then
+    if(ldis) then
       call dis_cr(this%dis, this%name, in_dum, iout_dum) 
-    elseif(indisu6 > 0) then
+    elseif(ldisu) then
       call disu_cr(this%dis, this%name, in_dum, iout_dum)
-    elseif(indisv6 > 0) then
+    elseif(ldisv) then
       call disv_cr(this%dis, this%name, in_dum, iout_dum)
     endif
+    !
+    ! -- Allocate for the MSHAPE variable
+    call mem_allocate(this%dis%mshape, this%dis%ndim, 'MSHAPE', this%dis%origin)
     !
     ! -- Create packages that are tied directly to model
     call npf_cr(this%npf, this%name, in_dum, iout_dum)

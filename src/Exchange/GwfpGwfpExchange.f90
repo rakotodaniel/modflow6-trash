@@ -23,6 +23,7 @@ module gwfpgwfpExchangeModule
   
   private
   public :: gwfpexchange_create
+  public :: gwfpExchangeType
 
   type, extends(NumericalExchangeType) :: gwfpExchangeType
     type(gwfModelType), pointer                      :: gwfpmodel1 => null()    ! pointer to gwfp Model 1

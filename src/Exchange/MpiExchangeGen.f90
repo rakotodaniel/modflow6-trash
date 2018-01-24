@@ -6,7 +6,9 @@ module MpiExchangeGenModule
   private
   
   ! -- Public functions
-  public :: mpi_initialize, mpi_finalize, mpi_append_fname
+  public :: mpi_initialize
+  public :: mpi_finalize
+  public :: mpi_append_fname
     
   ! -- Global variables based of the world communicator
   logical, public :: serialrun = .true., writestd = .true.

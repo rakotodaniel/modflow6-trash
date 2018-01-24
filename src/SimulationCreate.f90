@@ -79,8 +79,12 @@ module SimulationCreateModule
     !
     ! -- variables
     deallocate(modelname)
-    deallocate(modelname_all) !JV
-    deallocate(model_sub) !JV
+    if (allocated(modelname_all)) then !JV
+      deallocate(modelname_all) !JV
+    endif !JV
+    if (allocated(model_sub)) then !JV
+      deallocate(model_sub) !JV
+    endif !JV
     !
     ! -- Return
     return
@@ -146,7 +150,7 @@ module SimulationCreateModule
 ! ------------------------------------------------------------------------------
     ! -- modules
     use MpiExchangeGenModule, only: writestd !JV
-    use MpiExchangeModule, only: MpiWorld !JV
+    use MpiExchangeModule, only: MpiWorld, mpi_dis_world !JV
     ! -- dummy
     character(len=*),intent(inout) :: simfile !JV
     ! -- local
@@ -172,6 +176,9 @@ module SimulationCreateModule
     !
     ! -- Process MODELS block in simfile
     call models_create()
+    !
+    ! -- Collective MPI communication scalars DIS
+    call mpi_dis_world(1) !JV
     !
     ! -- Process EXCHANGES block in simfile
     call exchanges_create()
@@ -208,6 +215,10 @@ module SimulationCreateModule
       sp => GetBaseSolutionFromList(basesolutionlist, is) !JV
       call sp%slnmpiinit(sp%name) !JV
     enddo !JV
+    ! --- Initialize for all
+    write(*,*) 'TODO'
+    
+    
     !
     ! -- Return
     return
@@ -393,6 +404,7 @@ module SimulationCreateModule
               call add_model(im, 'GWF6', mname)
               call gwf_cr(fname, im, modelname(im))
             end if !JV
+            ! -- Store global subdomain information !JV
             if (isimdd == 1) then !JV
               call add_model_dd(imdd, isub,'GWF6', mname) !JV
               call MpiWorld%mpi_addmodel(1, mname) !JV
@@ -641,6 +653,9 @@ module SimulationCreateModule
               !
               ! -- Find the model id, and then get model
               mid = ifind(modelname_all, mname) !JV
+              if (mid < 0) then !JV
+                mid = ifind(modelname, mname) !JV
+              endif !JV
               call sp%slnmpiaddgmodel(mname, isoln) !JV
               if(mid <= 0) then
                 write(errmsg, '(a,a)') 'Error.  Invalid modelname: ', &
