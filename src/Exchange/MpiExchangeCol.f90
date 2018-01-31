@@ -28,7 +28,7 @@ contains
 !    SPECIFICATIONS:
 ! ------------------------------------------------------------------------------
     ! -- modules
-    use ConstantsModule, only: LINELENGTH, LENORIGIN
+    use ConstantsModule, only: LINELENGTH, LENMODELNAME
     use SimModule, only: store_error, store_error_unit, ustop
     ! -- dummy
     character(len=*), intent(in) :: modelname
@@ -36,7 +36,7 @@ contains
     ! -- local
     character(len=LINELENGTH) :: errmsg
     character(len=1) :: cdum
-    character(len=LENORIGIN) :: m
+    character(len=LENMODELNAME) :: m, mh
     character(len=4) :: dis_type
     logical :: lfound
     integer :: i
@@ -46,14 +46,16 @@ contains
     ldisv = .false.
     !
     if (serialrun .or. ciopt /= 1) then
-      !ldis = .true. !@@@@@@@ DEBUG
+      ldis = .true. !@@@@@@@ DEBUG
       return
     endif
+    !
+    read(modelname,*) mh
     !
     lfound = .false.
     do i = 1, n_recv
       read(cmt_recv(i)%origin,*) m, dis_type
-      if (m == modelname) then
+      if (m == mh) then
         select case(dis_type)
           case ('DIS')
             ldis = .true.

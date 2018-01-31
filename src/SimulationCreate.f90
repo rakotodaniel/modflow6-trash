@@ -215,10 +215,6 @@ module SimulationCreateModule
       sp => GetBaseSolutionFromList(basesolutionlist, is) !JV
       call sp%slnmpiinit(sp%name) !JV
     enddo !JV
-    ! --- Initialize for all
-    write(*,*) 'TODO'
-    
-    
     !
     ! -- Return
     return
@@ -563,6 +559,9 @@ module SimulationCreateModule
     use BaseModelModule,            only: BaseModelType
     use BaseExchangeModule,         only: BaseExchangeType
     use NumericalSolutionModule,    only: solution_create
+    use MpiExchangeGenModule,       only: nhalo, modelname_halo,               & !JV
+                                          mpi_create_modelname_halo              !JV
+    use ListsModule,                only: halomodellist !JV
     ! -- dummy
     ! -- local
     type(SolutionGroupType), pointer  :: sgp
@@ -578,7 +577,9 @@ module SimulationCreateModule
     character(len=LINELENGTH) :: errmsg
     character(len=LENBIGLINE) :: keyword
     character(len=LINELENGTH) :: fname, mname
+    character(len=LINELENGTH) :: hmname !JV
     logical :: add !JV
+    integer(I4B) :: ih !JV
     ! -- formats
     character(len=*), parameter :: fmterrmxiter = &
       "('ERROR. MXITER IS SET TO ', i0, ' BUT THERE IS ONLY ONE SOLUTION',     &
@@ -653,9 +654,6 @@ module SimulationCreateModule
               !
               ! -- Find the model id, and then get model
               mid = ifind(modelname_all, mname) !JV
-              if (mid < 0) then !JV
-                mid = ifind(modelname, mname) !JV
-              endif !JV
               call sp%slnmpiaddgmodel(mname, isoln) !JV
               if(mid <= 0) then
                 write(errmsg, '(a,a)') 'Error.  Invalid modelname: ', &
@@ -664,14 +662,32 @@ module SimulationCreateModule
                 call parser%StoreErrorUnit()
                 call ustop()
               endif
+              add = .false. !JV
               mid = ifind(modelname, mname) !JV
               if (mid > 0) then !JV
                 mp => GetBaseModelFromList(basemodellist, mid)
-                !
+                add = .true. !JV
+              endif !JV
+              if (add) then !JV
                 ! -- Add the model to the solution
                 call sp%addmodel(mp)
                 mp%idsoln = isoln
               endif !JV
+              add = .false. !JV
+              do ih = 1, nhalo !JV
+                hmname = mname !JV
+                call mpi_create_modelname_halo(ih, hmname)
+                mid = ifind(modelname_halo, hmname) !JV
+                if (mid > 0) then !JV
+                  mp => GetBaseModelFromList(halomodellist, mid)
+                  add = .true. !JV
+                endif
+                if (add) then !JV
+                  ! -- Add the model to the solution
+                  call sp%addmodel(mp)
+                  mp%idsoln = isoln
+                endif !JV
+              enddo !JV
             enddo
           case default
             write(errmsg, '(4x,a,a)') &

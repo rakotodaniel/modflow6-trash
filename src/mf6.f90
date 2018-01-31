@@ -21,7 +21,8 @@ program mf6
   use SolutionGroupModule,    only: SolutionGroupType, GetSolutionGroupFromList
   use ListsModule,            only: basesolutionlist, solutiongrouplist,       &
                                     basemodellist, baseexchangelist,           &
-                                    lists_da
+                                    lists_da,                                  &
+                                    halomodellist !JV
   use SimVariablesModule,     only: iout 
   use SimModule,              only: converge_reset, converge_check,            &
                                     final_message
@@ -29,11 +30,13 @@ program mf6
                                     endofsimulation
   use MpiExchangeGenModule,   only: mpi_initialize, serialrun, writestd !JV
   use MpiExchangeModule,      only: mpi_initialize_world, mpi_dis_world,       & !JV
-                                    mpi_set_dis_world, MpiWorld !JV 
+                                    mpi_set_dis_world, MpiWorld
+  use NumericalSolutionModule, only: NumericalSolutionType !JV
   implicit none
   ! -- local
   class(SolutionGroupType), pointer :: sgp
   class(BaseSolutionType),  pointer :: sp
+  class(NumericalSolutionType), pointer :: nsp !JV
   class(BaseModelType),     pointer :: mp
   class(BaseExchangeType),  pointer :: ep
   integer(I4B) :: im, ic, is, isg
@@ -101,6 +104,21 @@ program mf6
     mp => GetBaseModelFromList(basemodellist, im)
     call mp%model_ar()
   enddo
+  ! -- Allocate and read each model
+  do im = 1, halomodellist%Count() !JV
+    mp => GetBaseModelFromList(halomodellist, im) !JV
+    call mp%model_ar() !JV
+  enddo !JV
+  ! 
+  ! -- Local exchange (TODO)
+  do is=1,basesolutionlist%Count() !JV
+    sp => GetBaseSolutionFromList(basesolutionlist, is) !JV
+    select type (sp) !JV
+    class is (NumericalSolutionType) !JV
+      nsp => sp !JV
+    end select !JV
+    call nsp%MpiSol%mpi_local_exchange(nsp%name, 1) !JV
+  enddo !JV
   !
   ! -- Allocate and read each exchange
   do ic = 1, baseexchangelist%Count()

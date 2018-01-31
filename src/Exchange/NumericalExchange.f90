@@ -24,6 +24,7 @@ module NumericalExchangeModule
     integer(I4B), pointer                        :: nexg                        !number of exchanges
     integer(I4B), dimension(:), pointer          :: nodem1                      !node numbers in model 1
     integer(I4B), dimension(:), pointer          :: nodem2                      !node numbers in model 2
+    integer(I4B), dimension(:), pointer          :: nodeum2                     !user node numbers in model 2 !JV
     real(DP), pointer, dimension(:)              :: cond                        !conductance
     integer(I4B), dimension(:), pointer          :: idxglo                      !pointer to solution amat for each connection
     integer(I4B), dimension(:), pointer          :: idxsymglo                   !pointer to symmetric amat position for each connection
@@ -98,6 +99,10 @@ contains
     integer(I4B) :: n, iglo, jglo
 ! ------------------------------------------------------------------------------
     !
+    if (this%m2_ishalo) then !JV
+      return !JV
+    endif !JV
+    !
     if(this%implicit) then
       do n = 1, this%nexg
         iglo = this%nodem1(n) + this%m1%moffset
@@ -127,6 +132,10 @@ contains
     ! -- local
     integer(I4B) :: n, iglo, jglo, ipos
 ! ------------------------------------------------------------------------------
+    !
+    if (this%m2_ishalo) then !JV
+      return !JV
+    endif !JV
     !
     if(this%implicit) then
       do n = 1, this%nexg
@@ -450,6 +459,7 @@ contains
     !
     call mem_allocate(this%nodem1, this%nexg, 'NODEM1', origin)
     call mem_allocate(this%nodem2, this%nexg, 'NODEM2', origin)
+    call mem_allocate(this%nodeum2, this%nexg, 'NODEUM2', origin) !JV
     call mem_allocate(this%cond, this%nexg, 'COND', origin)
     call mem_allocate(this%idxglo, this%nexg, 'IDXGLO', origin)
     call mem_allocate(this%idxsymglo, this%nexg, 'IDXSYMGLO', origin)
@@ -488,6 +498,7 @@ contains
     ! -- arrays
     call mem_deallocate(this%nodem1)
     call mem_deallocate(this%nodem2)
+    call mem_deallocate(this%nodeum2) !JV
     call mem_deallocate(this%cond)
     call mem_deallocate(this%idxglo)
     call mem_deallocate(this%idxsymglo)

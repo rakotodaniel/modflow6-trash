@@ -1,4 +1,7 @@
 module MpiExchangeGenModule
+  use KindModule, only: DP, I4B  
+  use ConstantsModule, only: LENMODELNAME, LINELENGTH
+  use ArrayHandlersModule, only: ifind
   use MpiWrapper, only: mpiwrpinit, mpiwrpfinalize
   
   implicit none
@@ -9,10 +12,19 @@ module MpiExchangeGenModule
   public :: mpi_initialize
   public :: mpi_finalize
   public :: mpi_append_fname
-    
+  public :: mpi_is_halo
+  public :: mpi_create_modelname_halo
+  ! -- Public variables
+  public :: nhalo
+  public :: modelname_halo
+
   ! -- Global variables based of the world communicator
   logical, public :: serialrun = .true., writestd = .true.
   character(len=50), public :: partstr
+  
+  integer(I4B) :: nhalo = 0
+  character(len=LENMODELNAME), allocatable, dimension(:) :: modelname_halo !JV
+  character(len=LINELENGTH) :: errmsg
   
   save
   
@@ -75,5 +87,64 @@ module MpiExchangeGenModule
     ! -- return
     return
   end subroutine mpi_append_fname
+
+  subroutine mpi_create_modelname_halo(im, modelname)
+! ******************************************************************************
+! Create halo model name.
+! ******************************************************************************
+!
+!    SPECIFICATIONS:
+! ------------------------------------------------------------------------------
+    ! -- modules
+    ! -- return
+    ! -- dummy
+    character(len=*), intent(inout) :: modelname
+    integer(I4B), intent(in) :: im
+    ! -- local
+    character(len=LINELENGTH) :: s
+! ------------------------------------------------------------------------------
+    write(s,*) im
+    modelname = trim(modelname)//' HALO'//trim(adjustl(s))
+    !
+    ! -- return
+    return
+  end subroutine mpi_create_modelname_halo
+  
+  function mpi_is_halo(modelname) result(flag_halo)
+! ******************************************************************************
+! Check if a model name is of type halo
+! ******************************************************************************
+!
+!    SPECIFICATIONS:
+! ------------------------------------------------------------------------------
+    ! -- modules
+    ! -- return
+    logical :: flag_halo
+    ! -- dummy
+    character(len=*), intent(in) :: modelname
+    ! -- local
+    integer(I4B) :: m
+! ------------------------------------------------------------------------------
+    !
+    flag_halo = .false.
+    if (serialrun) then
+      !return !@@@@@ DEBUG 
+    endif
+    !
+    ! -- check
+    if (.not.allocated(modelname_halo)) then
+      !write(errmsg,'(a)') 'Program error in mpi_is_halo.'
+      !call store_error(errmsg)
+      !call ustop()
+    endif
+    !
+    m = ifind(modelname_halo, modelname) 
+    if (m > 0) then
+      flag_halo = .true.
+    endif
+    !
+    ! -- return
+    return
+  end function mpi_is_halo
   
 end module MpiExchangeGenModule

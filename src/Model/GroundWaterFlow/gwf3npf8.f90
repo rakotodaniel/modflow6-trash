@@ -238,7 +238,7 @@ module GwfNpfModule
     return
   end subroutine npf_mc
 
-  subroutine npf_ar(this, dis, ic, ibound, hnew)
+  subroutine npf_ar(this, dis, ic, ibound, hnew, in_flag_halo)
 ! ******************************************************************************
 ! npf_ar -- Allocate and Read
 ! ******************************************************************************
@@ -251,10 +251,17 @@ module GwfNpfModule
     type(GwfIcType), pointer, intent(in) :: ic
     integer(I4B), pointer, dimension(:), intent(inout) :: ibound
     real(DP), pointer, dimension(:), intent(inout) :: hnew
+    logical, intent(in), optional :: in_flag_halo !JV
     ! -- local
+    logical :: flag_halo !JV
     ! -- formats
     ! -- data
 ! ------------------------------------------------------------------------------
+    !
+    flag_halo = .false. !JV
+    if (present(in_flag_halo)) then !JV
+      flag_halo = in_flag_halo !JV
+    endif !JV
     !
     ! -- Store pointers to arguments that were passed in
     this%dis     => dis
@@ -266,7 +273,9 @@ module GwfNpfModule
     call this%allocate_arrays(dis%nodes, dis%njas)
     !
     ! -- read the data block
-    call this%read_data()
+    if (.not.flag_halo) then !JV
+      call this%read_data()
+    endif !JV
     !
     ! -- Initialize and check data
     call this%prepcheck()

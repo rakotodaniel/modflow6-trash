@@ -324,6 +324,8 @@ module GwfModule
     use GwfNpfModule,               only: npf_cr
     use Xt3dModule,                 only: xt3d_cr
     use GwfMvrModule,               only: mvr_cr
+    use GwfIcModule,                only: ic_cr !JV
+    use ObsModule,                  only: obs_cr !JV
     use MpiExchangeColModule,       only: mpi_get_distype
     ! -- dummy
     integer(I4B), intent(in)      :: id
@@ -362,15 +364,21 @@ module GwfModule
     elseif(ldisv) then
       call disv_cr(this%dis, this%name, in_dum, iout_dum)
     endif
-    !
-    ! -- Allocate for the MSHAPE variable
-    call mem_allocate(this%dis%mshape, this%dis%ndim, 'MSHAPE', this%dis%origin)
+    ! -- Allocate discretization variables
+    call this%dis%allocate_arrays()
+    
+    ! -- Allocate model arrays, now that neq and nja are assigned
+    call this%allocate_arrays()
     !
     ! -- Create packages that are tied directly to model
     call npf_cr(this%npf, this%name, in_dum, iout_dum)
     call xt3d_cr(this%xt3d, this%name, in_dum, iout_dum)
     call gnc_cr(this%gnc, this%name, in_dum, iout_dum)
+    call ic_cr(this%ic, this%name, in_dum, iout_dum, this%dis)
     call mvr_cr(this%mvr, this%name, in_dum, iout_dum)
+    !
+    ! -- create obs package
+    !call obs_cr(this%obs, in_dum)
     !
     ! -- return
     return
@@ -507,21 +515,32 @@ module GwfModule
 !
 !    SPECIFICATIONS:
 ! ------------------------------------------------------------------------------
+    ! -- modules
+    use MpiExchangeGenModule, only: mpi_is_halo !JV
     ! -- dummy
     class(GwfModelType) :: this
     ! -- locals
     integer(I4B) :: ip
     class(BndType), pointer :: packobj
+    logical :: flag_halo !JV
 ! ------------------------------------------------------------------------------
     !
+    ! -- Get flag indicating that the model is of type halo
+    flag_halo = mpi_is_halo(this%name) !JV
+    !
     ! -- Allocate and read modules attached to model
-    if(this%inic  > 0) call this%ic%ic_ar(this%x)
+    if(this%inic  > 0) call this%ic%ic_ar(this%x, flag_halo) !JV
     if(this%innpf > 0) call this%npf%npf_ar(this%dis, this%ic,                 &
-                                            this%ibound, this%x)
+                                            this%ibound, this%x,               &
+                                            flag_halo) !JV
     if(this%inhfb > 0) call this%hfb%hfb_ar(this%ibound, this%xt3d, this%dis)
     if(this%insto > 0) call this%sto%sto_ar(this%dis, this%ibound)
     if(this%inmvr > 0) call this%mvr%mvr_ar()
     if(this%inobs > 0) call this%obs%gwf_obs_ar(this%ic, this%x, this%flowja)
+    !
+    if (flag_halo) then !JV
+      return !JV
+    endif !JV
     !
     ! -- Call dis_ar to write binary grid file
     call this%dis%dis_ar(this%npf%icelltype)

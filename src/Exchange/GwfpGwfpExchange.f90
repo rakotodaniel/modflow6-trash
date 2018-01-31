@@ -92,6 +92,7 @@ subroutine gwfpexchange_create(filename, id, m1i, m2i, mname1i, mname2i, im,   &
     use BaseModelModule, only: BaseModelType
     use ListsModule, only: baseexchangelist, halomodellist
     use ObsModule, only: obs_cr
+    use MpiExchangeModule, only: mpi_add_halo_model !JV
     ! -- dummy
     character(len=*),intent(in) :: filename
     integer(I4B), intent(in) :: id
@@ -162,8 +163,11 @@ subroutine gwfpexchange_create(filename, id, m1i, m2i, mname1i, mname2i, im,   &
     else  
       im = im + 1
       exchange%m2_ishalo = .true.
+      ! TODO: generate unique string for model!
+      call mpi_add_halo_model(im, mname2) !JV
       call gwf_cr_halo(im, mname2)
       mb => GetBaseModelFromList(halomodellist, im)
+      mb%ishalo = .true. !JV
     endif
     ! -- set exchange%m2
     select type (mb)
@@ -248,9 +252,6 @@ subroutine gwfpexchange_create(filename, id, m1i, m2i, mname1i, mname2i, im,   &
     call this%gwfp_gwfp_df_obs()
     call this%obs%obs_df(iout, this%name, 'gwfp-gwfp', this%gwfpmodel1%dis)
     !
-    write(*,*) '@stopping'
-    
-    
     ! -- return
     return
   end subroutine gwfp_gwfp_df
@@ -1163,6 +1164,8 @@ subroutine gwfpexchange_create(filename, id, m1i, m2i, mname1i, mname2i, im,   &
     use ConstantsModule, only: LINELENGTH
     use SimModule, only: ustop, store_error, store_error_unit, count_errors
     use BaseModelModule, only: BaseModelType
+    use MpiExchangeGenModule, only: mpi_is_halo !JV
+    use MpiExchangeModule, only: MpiWorld !JV DEBUG
     ! -- dummy
     class(gwfpExchangeType) :: this
     integer(I4B), intent(in) :: iout
@@ -1208,17 +1211,39 @@ subroutine gwfpexchange_create(filename, id, m1i, m2i, mname1i, mname2i, im,   &
         call this%parser%GetNextLine(endOfBlock)
         lloc = 1
         !
-        ! -- Read and check node 1
-        call this%parser%GetCellid(this%m1%dis%ndim, cellid, flag_string=.true.)
-        nodem1 = this%m1%dis%noder_from_cellid(cellid, this%parser%iuactive,   &
-                                               iout, flag_string=.true.)
-        this%nodem1(iexg) = nodem1
-        !
-        ! -- Read and check node 2
-        call this%parser%GetCellid(this%m2%dis%ndim, cellid, flag_string=.true.)
-        nodem2 = this%m2%dis%noder_from_cellid(cellid, this%parser%iuactive,   &
-                                               iout, flag_string=.true.)
-        this%nodem2(iexg) = nodem2
+        if (.not.this%m1m2_swap) then !JV
+          ! -- Read and check node 1
+          call this%parser%GetCellid(this%m1%dis%ndim, cellid, flag_string=.true.)
+          nodem1 = this%m1%dis%noder_from_cellid(cellid, this%parser%iuactive,   &
+                                                 iout, flag_string=.true.)
+          this%nodem1(iexg) = nodem1
+          !
+          ! -- Read and check node 2
+          call this%parser%GetCellid(this%m2%dis%ndim, cellid, flag_string=.true.)
+          nodem2 = this%m2%dis%noder_from_cellid(cellid, this%parser%iuactive,   &
+                                                 iout, flag_string=.true.)
+          this%nodem2(iexg) = nodem2
+          if (this%m2_ishalo) then
+            this%nodeum2(iexg) = nodem2
+            this%nodem2(iexg) = iexg
+          endif
+        else
+          ! -- Read and check node 2
+          call this%parser%GetCellid(this%m2%dis%ndim, cellid, flag_string=.true.)
+          nodem2 = this%m2%dis%noder_from_cellid(cellid, this%parser%iuactive,   &
+                                                 iout, flag_string=.true.)
+          this%nodem2(iexg) = nodem2
+          if (this%m2_ishalo) then
+            this%nodeum2(iexg) = nodem2
+            this%nodem2(iexg) = iexg
+          endif
+          !
+          ! -- Read and check node 1
+          call this%parser%GetCellid(this%m1%dis%ndim, cellid, flag_string=.true.)
+          nodem1 = this%m1%dis%noder_from_cellid(cellid, this%parser%iuactive,   &
+                                                 iout, flag_string=.true.)
+          this%nodem1(iexg) = nodem1
+        endif
         !
         ! -- Read rest of input line
         this%ihc(iexg) = this%parser%GetInteger()
@@ -1241,7 +1266,11 @@ subroutine gwfpexchange_create(filename, id, m1i, m2i, mname1i, mname2i, im,   &
         if(this%iprpak /= 0) then
           nodeum1 = this%m1%dis%get_nodeuser(nodem1)
           call this%m1%dis%nodeu_to_string(nodeum1, node1str)
-          nodeum2 = this%m2%dis%get_nodeuser(nodem2)
+          if (.not. mpi_is_halo(this%m2%name)) then !JV
+            nodeum2 = this%m2%dis%get_nodeuser(nodem2)
+          else !JV
+            nodeum2 = nodem2 !JV
+          endif !JV 
           call this%m2%dis%nodeu_to_string(nodeum2, node2str)
           if (this%inamedbound == 0) then
             write(iout, fmtexgdata) trim(node1str), trim(node2str),            &
@@ -1477,12 +1506,10 @@ subroutine gwfpexchange_create(filename, id, m1i, m2i, mname1i, mname2i, im,   &
       m = this%nodem2(iexg)
       ibdn = this%gwfpmodel1%ibound(n)
       ibdm = this%gwfpmodel2%ibound(m)
-      !call GetHaloValue('IBOUND',iexg)
       ictn = this%gwfpmodel1%npf%icelltype(n)
       ictm = this%gwfpmodel2%npf%icelltype(m)
       topn = this%gwfpmodel1%dis%top(n)
       topm = this%gwfpmodel2%dis%top(m)
-      !call GetHaloValue('TOP',iexg)
       botn = this%gwfpmodel1%dis%bot(n)
       botm = this%gwfpmodel2%dis%bot(m)
       satn = this%gwfpmodel1%npf%sat(n)

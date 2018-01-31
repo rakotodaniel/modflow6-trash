@@ -27,6 +27,7 @@ module NumericalSolutionModule
   implicit none
   private
   public :: solution_create
+  public :: NumericalSolutionType !JV
 
   type, extends(BaseSolutionType) :: NumericalSolutionType
     character(len=LINELENGTH)                            :: fname
