@@ -471,7 +471,7 @@ module MpiExchangeModule
     ! -- Set the variabels
     allocate(vmt1)
     allocate(vmt1%nvar)
-    vmt1%nvar = 1
+    vmt1%nvar = 2
     allocate(vmt1%names(vmt1%nvar))
     allocate(vmt1%namesext(vmt1%nvar))
     allocate(vmt1%namessol(vmt1%nvar))
@@ -479,15 +479,15 @@ module MpiExchangeModule
     vmt1%names(iv)    = 'AREA'
     vmt1%namesext(iv) = 'DIS'
     vmt1%namessol(iv) = .false.
-    !iv = iv + 1
-    !vmt1%names(iv)    = 'IACTIVE'
-    !vmt1%namesext(iv) = ''
-    !vmt1%namessol(iv) = .true.
+    iv = iv + 1
+    vmt1%names(iv)    = 'IACTIVE'
+    vmt1%namesext(iv) = ''
+    vmt1%namessol(iv) = .true.
     !
     if (iopt == 1) then
       vmt => vmt1
     endif
-    
+    !
     ! -- Loop over exchange partners
     do ixp = 1, this%nrxp
       nsnd = this%lxch(ixp)%nexchange * vmt%nvar
@@ -525,7 +525,7 @@ module MpiExchangeModule
                        this%lxch(ixp)%xprnk, 0, this%comm, sreq(ixp))
     enddo
     call mpiwrpwaitall(this%nrproc, sreq, mpiwrpstats)
-    ! -- Probe for the data sizes
+    ! -- Probe for the data sizes and allocate
     do ixp = 1, this%nrxp
        call mpiwrpprobe(this%lxch(ixp)%xprnk, 0, this%comm, mpiwrpstats(1,ixp))
        call mpiwrpgetcount(mpiwrpstats(1,ixp), newtype, this%lxch(ixp)%nrcvvar)
@@ -541,40 +541,47 @@ module MpiExchangeModule
     ! -- Clean up MPI datatype
     call mpiwrptypefree(newtype)
     ! -- Debug
-    if (.false.) then
+    if (.true.) then
       do irank = 0, this%nrproc-1
         if (irank == this%myrank) then
           write(*,*) '====myrank',this%myrank
           do ixp = 1, this%nrxp
             write(*,*) '=======received from',this%lxch(ixp)%xprnk
             do i = 1, this%lxch(ixp)%nrcvvar
-              write(*,*) 'name:   ', trim(this%lxch(ixp)%rcvmmt(i)%name)
-              write(*,*) 'origin: ', trim(this%lxch(ixp)%rcvmmt(i)%origin)
-              write(*,*) 'isize:  ', this%lxch(ixp)%rcvmmt(i)%isize
+              write(*,*) 'name:     ', trim(this%lxch(ixp)%rcvmmt(i)%name)
+              write(*,*) 'origin:   ', trim(this%lxch(ixp)%rcvmmt(i)%origin)
+              write(*,*) 'memitype: ', this%lxch(ixp)%rcvmmt(i)%memitype
+              write(*,*) 'isize:    ', this%lxch(ixp)%rcvmmt(i)%isize
+              write(*,*) 'ncol:     ', this%lxch(ixp)%rcvmmt(i)%ncol
+              write(*,*) 'nrow:     ', this%lxch(ixp)%rcvmmt(i)%nrow
             enddo
           enddo
         endif
         call mpiwrpbarrier(this%comm)
       enddo
     endif
-    
-    ! -- Non-blocking send
+    !
+    ! -- Create MPI send datatypes
     allocate(snd_newtype(this%nrxp))
     do ixp = 1, this%nrxp
       call mpiwrpmtstruct(this%lxch(ixp)%sndmt, this%lxch(ixp)%sndmmt,          &
-                          this%lxch(ixp)%nsndvar, snd_newtype(ixp), this%myrank)
-      call mpiwrpisend(this%lxch(ixp)%sndmt, this%lxch(ixp)%nsndvar,            &
-                       snd_newtype(ixp),                                        &
+                          this%lxch(ixp)%nsndvar, snd_newtype(ixp))
+    enddo
+    ! -- Non-blocking send
+    do ixp = 1, this%nrxp
+      call mpiwrpisend(this%lxch(ixp)%sndmt, 1, snd_newtype(ixp),               &
                        this%lxch(ixp)%xprnk, 0, this%comm, sreq(ixp))
     enddo
     call mpiwrpwaitall(this%nrproc, sreq, mpiwrpstats)
-    ! -- Non-blocking receive
+    ! -- Create MPI receive datatypes
     allocate(rcv_newtype(this%nrxp))
     do ixp = 1, this%nrxp
       call mpiwrpmtstruct(this%lxch(ixp)%rcvmt, this%lxch(ixp)%rcvmmt,          &
-                          this%lxch(ixp)%nrcvvar, rcv_newtype(ixp), this%myrank)
-      call mpiwrpirecv(this%lxch(ixp)%rcvmt, this%lxch(ixp)%nrcvvar,            &
-                       rcv_newtype(ixp),                                        &
+                          this%lxch(ixp)%nrcvvar, rcv_newtype(ixp))
+    enddo
+    ! -- Non-blocking receive
+    do ixp = 1, this%nrxp
+      call mpiwrpirecv(this%lxch(ixp)%rcvmt, 1, rcv_newtype(ixp),               &
                        this%lxch(ixp)%xprnk, 0, this%comm, rreq(ixp))
     enddo
     call mpiwrpwaitall(this%nrproc, rreq, mpiwrpstats)

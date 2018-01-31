@@ -941,7 +941,7 @@ module MpiWrapper
     return
   end subroutine mpiwrpmmtstruct
   
-  subroutine mpiwrpmtstruct(mt, mmt, nmt, newtype, myrank)
+  subroutine mpiwrpmtstruct(mt, mmt, nmt, newtype)
   ! ******************************************************************************
   ! ******************************************************************************
   !
@@ -957,7 +957,6 @@ module MpiWrapper
     type(MemoryType), dimension(nmt), intent(inout) :: mt
     type(MetaMemoryType), dimension(nmt), intent(in) :: mmt
     integer, intent(out) :: newtype
-    integer, intent(in) :: myrank !@@@DEBUG
     ! -- local
     integer :: i, j, isize, ncol, nrow, ierr, ntypes
     integer, dimension(:), allocatable :: types, blocklengths
@@ -965,7 +964,6 @@ module MpiWrapper
     integer(KIND=MPI_ADDRESS_KIND) :: base
   ! ------------------------------------------------------------------------------
 #ifdef MPI_PARALLEL
-    write(*,*) '@@@@ nmt =', myrank, nmt
     ntypes = 11
     allocate(types(nmt*ntypes))
     allocate(blocklengths(nmt*ntypes))
