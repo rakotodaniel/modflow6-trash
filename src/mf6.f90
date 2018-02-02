@@ -23,7 +23,7 @@ program mf6
                                     basemodellist, baseexchangelist,           &
                                     lists_da,                                  &
                                     halomodellist !JV
-  use SimVariablesModule,     only: iout 
+  use SimVariablesModule,     only: iout, isimdd !JV
   use SimModule,              only: converge_reset, converge_check,            &
                                     final_message
   use TdisModule,             only: tdis_tu, tdis_da,                          &
@@ -111,14 +111,16 @@ program mf6
   enddo !JV
   ! 
   ! -- Local exchange (TODO)
-  do is=1,basesolutionlist%Count() !JV
-    sp => GetBaseSolutionFromList(basesolutionlist, is) !JV
-    select type (sp) !JV
-    class is (NumericalSolutionType) !JV
-      nsp => sp !JV
-    end select !JV
-    call nsp%MpiSol%mpi_local_exchange(nsp%name, 1) !JV
-  enddo !JV
+  if (isimdd == 1) then !JV
+    do is=1,basesolutionlist%Count() !JV
+      sp => GetBaseSolutionFromList(basesolutionlist, is) !JV
+      select type (sp) !JV
+      class is (NumericalSolutionType) !JV
+        nsp => sp !JV
+      end select !JV
+      call nsp%MpiSol%mpi_local_exchange(nsp%name, 1) !JV
+    enddo !JV
+  endif !JV
   !
   ! -- Allocate and read each exchange
   do ic = 1, baseexchangelist%Count()

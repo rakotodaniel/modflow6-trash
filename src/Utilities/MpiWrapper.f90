@@ -54,15 +54,16 @@ module MpiWrapper
   public :: mpiwrpstats
   public :: mpiwrpwaitall
   public :: mpiwrpprobe
-  public :: ColMemoryType
-  public :: MetaMemoryType
   public :: mpiwrptypefree
   public :: mpiwrpgetcount
+  
+  public :: ColMemoryType
+  public :: MetaMemoryType
   
   save
   
   interface mpiwrpisend
-    module procedure mpiwrpisendmmt, mpiwrpisendmt, mpiwrpisendd
+    module procedure mpiwrpisendmmt, mpiwrpisendmt
   end interface
 
   interface mpiwrpirecv
@@ -240,8 +241,7 @@ module MpiWrapper
     integer :: ierr      
 ! ------------------------------------------------------------------------------
 #ifdef MPI_PARALLEL
-    call mpi_isend(buf, count, datatype, dest, tag,                             &
-                   comm, req, ierr)
+    call mpi_isend(buf, count, datatype, dest, tag, comm, req, ierr)
 #else
     req = -1
     call mpiwrperror(comm, 'mpiwrpisendmmt', 'invalid operation')
@@ -261,8 +261,8 @@ module MpiWrapper
     ! -- modules
     use MemoryTypeModule, only: MemoryType
     ! -- dummy
-    integer, intent(in)                            :: count    ! number of integers to be sent
-    type(MemoryType), dimension(count), intent(in) :: buf      !  buffer to be sent
+    integer, intent(in)                            :: count    ! number of objects to be sent
+    type(MemoryType), dimension(count), intent(in) :: buf      ! buffer to be sent
     integer, intent(in)                            :: datatype ! data type
     integer, intent(in)                            :: dest     ! rank id of destination process
     integer, intent(in)                            :: tag      ! message tag
@@ -272,8 +272,7 @@ module MpiWrapper
     integer :: ierr      
 ! ------------------------------------------------------------------------------
 #ifdef MPI_PARALLEL
-    call mpi_isend(buf, count, datatype, dest, tag,                             &
-                   comm, req, ierr)
+    call mpi_isend(buf, count, datatype, dest, tag, comm, req, ierr)
 #else
     req = -1
     call mpiwrperror(comm, 'mpiwrpisendmt', 'invalid operation')
@@ -281,7 +280,7 @@ module MpiWrapper
     ! -- return
     return
   end subroutine mpiwrpisendmt
-  
+
   subroutine mpiwrpirecvmmt(buf, count, datatype, dest, tag, comm, req)
 ! ******************************************************************************
 ! Begins a non-blocking receive of a meta memory type structure from the
@@ -292,19 +291,18 @@ module MpiWrapper
 ! ------------------------------------------------------------------------------
     ! -- modules
     ! -- dummy
-    integer, intent(in)                                 :: count    ! number of integers to be sent
-    type(MetaMemoryType), dimension(count), intent(out) :: buf      ! buffer to be sent
-    integer, intent(in)                                 :: datatype ! data type
-    integer, intent(in)                                 :: dest     ! rank id of destination process
-    integer, intent(in)                                 :: tag      ! message tag
-    integer, intent(in)                                 :: comm     ! communicator
-    integer, intent(out)                                :: req      ! request handle
+    integer, intent(in)                                   :: count    ! number of objects to be received
+    type(MetaMemoryType), dimension(count), intent(inout) :: buf      ! buffer to be received
+    integer, intent(in)                                   :: datatype ! buffer data type
+    integer, intent(in)                                   :: dest     ! rank id of destination process
+    integer, intent(in)                                   :: tag      ! message tag
+    integer, intent(in)                                   :: comm     ! communicator
+    integer, intent(out)                                  :: req      ! request handle
     ! -- local
     integer :: ierr      
 ! ------------------------------------------------------------------------------
 #ifdef MPI_PARALLEL
-    call mpi_irecv(buf, count, datatype, dest, tag,                             &
-                   comm, req, ierr)
+    call mpi_irecv(buf, count, datatype, dest, tag, comm, req, ierr)
 #else
     req = -1
     call mpiwrperror(comm, 'mpiwrpirecvmmt', 'invalid operation')
@@ -324,19 +322,18 @@ module MpiWrapper
     ! -- modules
     use MemoryTypeModule, only: MemoryType
     ! -- dummy
-    integer, intent(in)                             :: count    ! number of integers to be sent
-    type(MemoryType), dimension(count), intent(out) :: buf      ! buffer to be sent
-    integer, intent(in)                             :: datatype ! data type
-    integer, intent(in)                             :: dest     ! rank id of destination process
-    integer, intent(in)                             :: tag      ! message tag
-    integer, intent(in)                             :: comm     ! communicator
-    integer, intent(out)                            :: req      ! request handle
+    integer, intent(in)                               :: count    ! number of objects to be received
+    type(MemoryType), dimension(count), intent(inout) :: buf      ! buffer to be received
+    integer, intent(in)                               :: datatype ! buffer data type
+    integer, intent(in)                               :: dest     ! rank id of destination process
+    integer, intent(in)                               :: tag      ! message tag
+    integer, intent(in)                               :: comm     ! communicator
+    integer, intent(out)                              :: req      ! request handle
     ! -- local
     integer :: ierr      
 ! ------------------------------------------------------------------------------
 #ifdef MPI_PARALLEL
-    call mpi_irecv(buf, count, datatype, dest, tag,                             &
-                   comm, req, ierr)
+    call mpi_irecv(buf, count, datatype, dest, tag, comm, req, ierr)
 #else
     req = -1
     call mpiwrperror(comm, 'mpiwrpirecvmt', 'invalid operation')
@@ -345,65 +342,6 @@ module MpiWrapper
     return
   end subroutine mpiwrpirecvmt
   
-  subroutine mpiwrpisendd(dbuf, count, dest, tag, comm, req)
-! ******************************************************************************
-! Begins a non-blocking send of a double array to the
-! process with rankID dest.
-! ******************************************************************************
-!
-!    SPECIFICATIONS:
-! ------------------------------------------------------------------------------
-    ! -- modules
-    ! -- dummy
-    double precision, dimension(*), intent(in) :: dbuf  ! double buffer to be sent
-    integer, intent(in)                        :: count ! number of integers to be sent
-    integer, intent(in)                        :: dest  ! rank id of destination process
-    integer, intent(in)                        :: tag   ! message tag
-    integer, intent(in)                        :: comm  ! communicator
-    integer, intent(out)                       :: req   ! request handle
-    ! -- local
-    integer :: ierr      
-! ------------------------------------------------------------------------------
-#ifdef MPI_PARALLEL
-    call mpi_isend(dbuf, count, mpi_double_precision, dest, tag,               &
-                   comm, req, ierr)
-#else
-    req = -1
-    call mpiwrperror(comm, 'mpiwrpisendd', 'invalid operation')
-#endif
-    ! -- return
-    return
-  end subroutine mpiwrpisendd
-  
-  subroutine mpiwrpirecvd(dbuf, count, source, tag, comm, req)
-! ******************************************************************************
-! Begins a non-blocking receive of an double array from
-! the process with rank source.
-! ******************************************************************************
-!
-!    SPECIFICATIONS:
-! ------------------------------------------------------------------------------
-    ! -- modules
-    ! -- dummy
-    double precision, dimension(*), intent(out) :: dbuf   ! (I) double buffer
-    integer, intent(in)                         :: count  ! (I) number of integers to be received
-    integer, intent(in)                         :: source ! (I) rank of source process
-    integer, intent(in)                         :: tag    ! (I) message tag
-    integer, intent(in)                         :: comm   ! (I) communicator
-    integer, intent(out)                        :: req    ! (O) request handle
-    ! -- local
-    integer  :: ierr
-! ------------------------------------------------------------------------------
-#ifdef MPI_PARALLEL
-      call mpi_irecv(dbuf, count, mpi_double_precision, source, tag,           &
-                     comm, req, ierr)
-#else
-      call mpiwrperror(comm, 'mpiwrpirecvd', 'invalid operation')
-#endif
-    ! -- return
-    return
-  end subroutine mpiwrpirecvd
-
   subroutine mpiwrpwaitall(count, reqs, status)
 ! ******************************************************************************
 ! Waits for a given set of communication requests to complete.
@@ -649,8 +587,7 @@ module MpiWrapper
     integer :: ierr, i, k
 ! ------------------------------------------------------------------------------
 #ifdef MPI_PARALLEL
-    call mpi_allgatherv(gsbuf, gscnt, gstype,                                  &
-                        grbuf, grcnt, offsets, grtype,                         &
+    call mpi_allgatherv(gsbuf, gscnt, gstype, grbuf, grcnt, offsets, grtype,    &
                         comm, ierr)
     !
 #endif

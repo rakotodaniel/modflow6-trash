@@ -411,9 +411,16 @@ contains
     ! -- Go through each model and point x, ibound, and rhs to solution
     do i = 1, this%modellist%Count()
       mp => GetNumericalModelFromList(this%modellist, i)
-      call mp%set_xptr(this%x)
-      call mp%set_rhsptr(this%rhs)
-      call mp%set_iboundptr(this%active)
+      if (.not.mp%ishalo) then !JV
+        call mp%set_xptr(this%x)
+        call mp%set_rhsptr(this%rhs)
+        call mp%set_iboundptr(this%active)
+      else !JV
+        ! -- Initialize the dummy halo arrays
+        call mp%set_xptr_halo()
+        call mp%set_rhsptr_halo()
+        call mp%set_iboundptr_halo()
+      endif
     enddo
     !
     ! -- Create the sparsematrix instance
@@ -1788,11 +1795,16 @@ contains
 !    SPECIFICATIONS:
 ! ------------------------------------------------------------------------------
     ! -- modules
+    use MpiExchangeGenModule, only: serialrun
     ! -- dummy
     class(NumericalSolutionType) :: this
     character(len=*), intent(in) :: sname
     ! -- local
 ! ------------------------------------------------------------------------------
+    !
+    if (serialrun) then
+      return
+    endif
     !
     this%MpiSol%name = 'MPI'//trim(sname)
     this%MpiSol%lmodellist   => this%modellist

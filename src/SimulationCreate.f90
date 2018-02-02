@@ -562,6 +562,7 @@ module SimulationCreateModule
     use MpiExchangeGenModule,       only: nhalo, modelname_halo,               & !JV
                                           mpi_create_modelname_halo              !JV
     use ListsModule,                only: halomodellist !JV
+    use SimVariablesModule,         only: isimdd !JV
     ! -- dummy
     ! -- local
     type(SolutionGroupType), pointer  :: sgp
@@ -653,15 +654,17 @@ module SimulationCreateModule
               if (mname == '') exit
               !
               ! -- Find the model id, and then get model
-              mid = ifind(modelname_all, mname) !JV
-              call sp%slnmpiaddgmodel(mname, isoln) !JV
-              if(mid <= 0) then
-                write(errmsg, '(a,a)') 'Error.  Invalid modelname: ', &
-                  trim(mname)
-                call store_error(errmsg)
-                call parser%StoreErrorUnit()
-                call ustop()
-              endif
+              if (isimdd ==1) then !JV
+                mid = ifind(modelname_all, mname) !JV
+                call sp%slnmpiaddgmodel(mname, isoln) !JV
+                if(mid <= 0) then
+                  write(errmsg, '(a,a)') 'Error.  Invalid modelname: ', &
+                    trim(mname)
+                  call store_error(errmsg)
+                  call parser%StoreErrorUnit()
+                  call ustop()
+                endif
+              endif !JV
               add = .false. !JV
               mid = ifind(modelname, mname) !JV
               if (mid > 0) then !JV

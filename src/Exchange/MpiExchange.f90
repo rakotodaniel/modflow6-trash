@@ -433,18 +433,19 @@ module MpiExchangeModule
     use NumericalExchangeModule, only: NumericalExchangeType,                  &
                                     GetNumericalExchangeFromList
     use GwfModule, only: GwfModelType
-    use MemoryManagerModule, only: mem_get_ptr
+    use MemoryManagerModule, only: mem_get_ptr, mem_setval
     use MpiWrapper, only: mpiwrpstats
     ! -- dummy
     class(MpiExchangeType) :: this
     character(len=*) :: solname
     integer(I4B), intent(in) :: iopt
     ! -- local
+    integer, parameter :: MAXNVAR = 100
     type VarMemoryType
-      integer, pointer                                 :: nvar     => null()
-      character(len=LENVARNAME), dimension(:), pointer :: names    => null()
-      character(len=LENVARNAME), dimension(:), pointer :: namesext => null()
-      logical, dimension(:), pointer                   :: namessol => null()
+      integer                                       :: nvar = 0
+      character(len=LENVARNAME), dimension(MAXNVAR) :: names
+      character(len=LENVARNAME), dimension(MAXNVAR) :: namesext
+      logical, dimension(MAXNVAR)                   :: namessol
     end type VarMemoryType
     type(VarMemoryType), pointer :: vmt1, vmt2, vmt
     
@@ -458,24 +459,33 @@ module MpiExchangeModule
     class(NumericalExchangeType), pointer :: cp
     type(GwfModelType), pointer :: m1, m2
     type(MemoryType), pointer :: mt
-    character(len=LENORIGIN) :: origin
-    integer(I4B) :: ixp, ix, nsnd, iv, is, i
+    character(len=LENORIGIN) :: mod_origin, sol_origin, src_origin, tgt_origin
+    integer(I4B) :: ixp, ix, nsnd, iv, is, i, istat
+    character(len=LENMODELNAME) :: mname, id
     !
     integer(I4B) :: newtype
     integer(I4B), dimension(:), allocatable :: snd_newtype, rcv_newtype
     integer(I4B), dimension(:), allocatable :: sreq, rreq
     !
-    integer(I4B) :: irank
+    integer(I4B) :: irank !@@@DEBUG
 ! ------------------------------------------------------------------------------
+    !
+    if (serialrun) then
+      return
+    endif
     !
     ! -- Set the variabels
     allocate(vmt1)
-    allocate(vmt1%nvar)
-    vmt1%nvar = 2
-    allocate(vmt1%names(vmt1%nvar))
-    allocate(vmt1%namesext(vmt1%nvar))
-    allocate(vmt1%namessol(vmt1%nvar))
-    iv = 1
+    iv = 0
+    iv = iv + 1
+    vmt1%names(iv)    = 'TOP'
+    vmt1%namesext(iv) = 'DIS'
+    vmt1%namessol(iv) = .false.
+    iv = iv + 1
+    vmt1%names(iv)    = 'BOT'
+    vmt1%namesext(iv) = 'DIS'
+    vmt1%namessol(iv) = .false.
+    iv = iv + 1
     vmt1%names(iv)    = 'AREA'
     vmt1%namesext(iv) = 'DIS'
     vmt1%namessol(iv) = .false.
@@ -483,6 +493,7 @@ module MpiExchangeModule
     vmt1%names(iv)    = 'IACTIVE'
     vmt1%namesext(iv) = ''
     vmt1%namessol(iv) = .true.
+    vmt1%nvar = iv
     !
     if (iopt == 1) then
       vmt => vmt1
@@ -500,19 +511,22 @@ module MpiExchangeModule
         cp => this%lxch(ixp)%exchange(ix)%obj 
         call cp%get_m1m2(m1, m2)
         do iv = 1, vmt%nvar
+          write(mod_origin,'(a,1x,a)') trim(m1%name), trim(vmt%namesext(iv))
+          sol_origin = trim(solname)
           if (.not.vmt%namessol(iv)) then
-            write(origin,'(a,1x,a)') trim(m1%name), trim(vmt%namesext(iv))
+            src_origin = mod_origin
           else
-            origin = trim(solname)
+            src_origin = sol_origin
           endif
-          call mem_get_ptr(vmt%names(iv), origin, mt)
+          tgt_origin = mod_origin
+          call mem_get_ptr(vmt%names(iv), src_origin, mt)
           is = is + 1
-          call mpi_pack_mt(cp%nodem1, cp%nexg, mt, this%lxch(ixp)%sndmt(is))
+          call mpi_pack_mt(tgt_origin, cp%nodem1, cp%nexg, mt, this%lxch(ixp)%sndmt(is))
           call mpi_pack_mmt(this%lxch(ixp)%sndmt(is), this%lxch(ixp)%sndmmt(is))
         enddo
       enddo
     enddo
-    !
+    !    
     ! -- First point-to-point communication to exchange memory type meta-data
     !
     ! -- Create MPI derived datatype
@@ -541,7 +555,7 @@ module MpiExchangeModule
     ! -- Clean up MPI datatype
     call mpiwrptypefree(newtype)
     ! -- Debug
-    if (.true.) then
+    if (.false.) then
       do irank = 0, this%nrproc-1
         if (irank == this%myrank) then
           write(*,*) '====myrank',this%myrank
@@ -561,11 +575,15 @@ module MpiExchangeModule
       enddo
     endif
     !
-    ! -- Create MPI send datatypes
-    allocate(snd_newtype(this%nrxp))
+    ! -- Second point-to-point communication to exchange actual data
+    !
+    ! -- Create MPI send and receive datatypes
+    allocate(snd_newtype(this%nrxp), rcv_newtype(this%nrxp))
     do ixp = 1, this%nrxp
       call mpiwrpmtstruct(this%lxch(ixp)%sndmt, this%lxch(ixp)%sndmmt,          &
                           this%lxch(ixp)%nsndvar, snd_newtype(ixp))
+      call mpiwrpmtstruct(this%lxch(ixp)%rcvmt, this%lxch(ixp)%rcvmmt,          &
+                          this%lxch(ixp)%nrcvvar, rcv_newtype(ixp))
     enddo
     ! -- Non-blocking send
     do ixp = 1, this%nrxp
@@ -573,12 +591,6 @@ module MpiExchangeModule
                        this%lxch(ixp)%xprnk, 0, this%comm, sreq(ixp))
     enddo
     call mpiwrpwaitall(this%nrproc, sreq, mpiwrpstats)
-    ! -- Create MPI receive datatypes
-    allocate(rcv_newtype(this%nrxp))
-    do ixp = 1, this%nrxp
-      call mpiwrpmtstruct(this%lxch(ixp)%rcvmt, this%lxch(ixp)%rcvmmt,          &
-                          this%lxch(ixp)%nrcvvar, rcv_newtype(ixp))
-    enddo
     ! -- Non-blocking receive
     do ixp = 1, this%nrxp
       call mpiwrpirecv(this%lxch(ixp)%rcvmt, 1, rcv_newtype(ixp),               &
@@ -592,16 +604,18 @@ module MpiExchangeModule
     enddo
     deallocate(snd_newtype, rcv_newtype)
     ! -- Debug
-    if (.true.) then
+    if (.false.) then
       do irank = 0, this%nrproc-1
         if (irank == this%myrank) then
           write(*,*) '====myrank',this%myrank
           do ixp = 1, this%nrxp
             write(*,*) '=======received from',this%lxch(ixp)%xprnk
             do i = 1, this%lxch(ixp)%nrcvvar
-              write(*,*) 'name:   ', trim(this%lxch(ixp)%rcvmt(i)%name)
-              write(*,*) 'origin: ', trim(this%lxch(ixp)%rcvmt(i)%origin)
-              write(*,*) 'isize:  ', this%lxch(ixp)%rcvmt(i)%isize
+              write(*,*) 'name:      ', trim(this%lxch(ixp)%rcvmt(i)%name)
+              write(*,*) 'origin:    ', trim(this%lxch(ixp)%rcvmt(i)%origin)
+              write(*,*) 'isize:     ', this%lxch(ixp)%rcvmt(i)%isize
+              write(*,*) 'memitype:  ', this%lxch(ixp)%rcvmt(i)%memitype
+              !write(*,*) 'dval:      ', this%lxch(ixp)%rcvmt(i)%adbl1d(1)
             enddo
           enddo
         endif
@@ -609,14 +623,33 @@ module MpiExchangeModule
       enddo
     endif
     ! 
+    ! -- Set the received data for the halo (m2) models
+    do ixp = 1, this%nrxp
+      do ix = 1, this%lxch(ixp)%nexchange
+        cp => this%lxch(ixp)%exchange(ix)%obj 
+        call cp%get_m1m2(m1, m2)
+        do i = 1, this%lxch(ixp)%nrcvvar
+          src_origin = this%lxch(ixp)%rcvmt(i)%origin
+          read(src_origin,*,iostat=istat) mname, id
+          if (istat /= 0) then
+            read(src_origin,*,iostat=istat) mname
+            id = ''
+          endif
+          write(tgt_origin, '(a,1x,a)') trim(m2%name), trim(id)
+          this%lxch(ixp)%rcvmt(i)%origin = tgt_origin
+          call mem_setval(this%lxch(ixp)%rcvmt(i))
+        enddo
+      enddo 
+    enddo
+    !
     ! -- Debug
-    call ustop(stopmess='@@@@ STOP LOCAL EXCHANGE')
+    !call ustop(stopmess='@@@@ STOP LOCAL EXCHANGE')
     !
     ! -- return
     return
   end subroutine mpi_local_exchange
 
-  subroutine mpi_pack_mt(node, nexg, mti, mto)
+  subroutine mpi_pack_mt(origin, node, nexg, mti, mto)
 ! ******************************************************************************
 ! Pack memory type for point-to-point communication.
 ! ******************************************************************************
@@ -626,6 +659,7 @@ module MpiExchangeModule
     ! -- modules
     use MemoryTypeModule, only: iaint1d, iadbl1d
     ! -- dummy
+    character(len=*), intent(in) :: origin
     integer(I4B), intent(in) :: nexg
     integer(I4B), dimension(nexg), intent(in) :: node
     type(MemoryType), intent(in) :: mti
@@ -637,7 +671,7 @@ module MpiExchangeModule
     write(errmsg,'(a)') 'Program error in mpi_pack_mt.'
     !
     mto%name     = mti%name
-    mto%origin   = mti%origin
+    mto%origin   = trim(origin)
     mto%memitype = mti%memitype
     mto%isize    = nexg
     !
@@ -1088,48 +1122,7 @@ module MpiExchangeModule
     ! -- return
     return
   end subroutine mpi_dis_world
-  
-!  subroutine mpi_set_modelname_halo()
-!! ******************************************************************************
-!! This subroutine sets the list of halo (m2) models
-!! ******************************************************************************
-!!
-!!    SPECIFICATIONS:
-!! ------------------------------------------------------------------------------
-!    ! -- modules
-!    use MpiExchangeGenModule, only: modelname_halo
-!    use BaseExchangeModule, only: BaseExchangeType, GetBaseExchangeFromList
-!    use NumericalExchangeModule, only: NumericalExchangeType
-!    use ListsModule, only: baseexchangelist
-!    ! -- local
-!    class(BaseExchangeType), pointer :: bep
-!    class(NumericalExchangeType), pointer :: nep
-!    type(GwfModelType), pointer :: m1, m2
-!    integer(I4B) :: ic, n, m
-!! ------------------------------------------------------------------------------
-!    !
-!    n = 0
-!    do ic=1,baseexchangelist%Count()
-!      bep => GetBaseExchangeFromList(baseexchangelist, ic)
-!      select type (bep)
-!      class is (NumericalExchangeType)
-!        nep => bep
-!      end select      
-!      call nep%get_m1m2(m1, m2)
-!      if (nep%m2_ishalo) then
-!        m = ifind(modelname_halo, m2%name)
-!        if (m < 0) then
-!          n = n + 1
-!          call ExpandArray(modelname_halo)
-!          modelname_halo(n) = m2%name
-!        endif
-!      endif
-!    enddo 
-!  
-!    ! -- return
-!    return
-!  end subroutine mpi_set_modelname_halo
-  
+    
   subroutine mpi_add_halo_model(im, modelname)
 ! ******************************************************************************
 ! This subroutine sets the list of halo (m2) models
@@ -1189,16 +1182,16 @@ module MpiExchangeModule
     !call mpi_set_modelname_halo()
     !
     if (serialrun) then
-      call mem_setval(1, 'NLAY', 'GWF_MODEL_2 HALO1 DIS') !@@@DEBUG
-      call mem_setval(3, 'NROW', 'GWF_MODEL_2 HALO1 DIS')
-      call mem_setval(3, 'NCOL', 'GWF_MODEL_2 HALO1 DIS')
-      wrk(1) = 1
-      wrk(2) = 3
-      wrk(3) = 3
-      call mem_setval(wrk, 'MSHAPE', 'GWF_MODEL_2 HALO1 DIS')
-      call mem_setval(9, 'NODESUSER', 'GWF_MODEL_2 HALO1 DIS')
-      call mem_setval(1, 'INNPF', 'GWF_MODEL_2 HALO1')
-      call mem_setval(1, 'INIC', 'GWF_MODEL_2 HALO1')
+      !call mem_setval(1, 'NLAY', 'GWF_MODEL_2 HALO1 DIS') !@@@DEBUG
+      !call mem_setval(3, 'NROW', 'GWF_MODEL_2 HALO1 DIS')
+      !call mem_setval(3, 'NCOL', 'GWF_MODEL_2 HALO1 DIS')
+      !wrk(1) = 1
+      !wrk(2) = 3
+      !wrk(3) = 3
+      !call mem_setval(wrk, 'MSHAPE', 'GWF_MODEL_2 HALO1 DIS')
+      !call mem_setval(9, 'NODESUSER', 'GWF_MODEL_2 HALO1 DIS')
+      !call mem_setval(1, 'INNPF', 'GWF_MODEL_2 HALO1')
+      !call mem_setval(1, 'INIC', 'GWF_MODEL_2 HALO1')
       return
     endif
     !
@@ -1209,7 +1202,7 @@ module MpiExchangeModule
       if (istat /= 0) then
         read(origin,*,iostat=istat) mname
         id = ''
-      endif  
+      endif
       do j = 1, nhalo
         mname_halo = mname
         call mpi_create_modelname_halo(j, mname_halo)

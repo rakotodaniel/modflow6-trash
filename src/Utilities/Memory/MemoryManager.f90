@@ -62,7 +62,7 @@ module MemoryManagerModule
   end interface mem_deallocate
 
   interface mem_setval !JV
-    module procedure setval_int, setval_int1d !JV
+    module procedure setval_int, setval_int1d, setval_mt !JV
   end interface mem_setval !JV
   
 contains
@@ -1156,5 +1156,84 @@ contains
     return
  end subroutine setval_int1d
 
+ subroutine setval_mt(mti) !JV
+! ******************************************************************************
+! Set the variabels base don the memory type
+! ******************************************************************************
+!
+!    SPECIFICATIONS:
+! ------------------------------------------------------------------------------
+    ! -- modules
+    use ConstantsModule, only: LENMODELNAME
+    use MemoryTypeModule, only: ilogicalsclr, iintsclr, idblsclr,               &
+                                iaint1d, iaint2d,                               &
+                                iadbl1d, iadbl2d
+    
+    ! -- dummy
+    type(MemoryType), intent(in) :: mti
+    ! -- local
+    character(len=LENORIGIN) :: origin
+    character(len=LENMODELNAME) :: name
+    type(MemoryType), pointer :: mt
+    integer(I4B) :: i, isizei, isize 
+! ------------------------------------------------------------------------------
+    !
+    name   = mti%name
+    origin = mti%origin
+    !
+    call mem_get_ptr(name, origin, mt)
+    !
+    if (mti%memitype /= mt%memitype) then
+      call allocate_error(name, origin, 0,                                      &
+      'Invalid type', 0)
+    endif
+    !
+    isizei = mti%isize
+    isize  = mt%isize
+    mt%isize = isizei
+    select case(mti%memitype)
+      case(ilogicalsclr)
+        if (.not.associated(mt%logicalsclr)) then
+          allocate(mt%logicalsclr)
+        endif
+        mt%logicalsclr = mti%logicalsclr
+      case(iintsclr)
+        if (.not.associated(mt%intsclr)) then
+          allocate(mt%intsclr)
+        endif
+        mt%intsclr = mti%intsclr
+      case(idblsclr)
+        if (.not.associated(mt%dblsclr)) then
+          allocate(mt%dblsclr)
+        endif
+        mt%dblsclr = mti%dblsclr
+      case(iaint1d)
+        if (.not.associated(mt%aint1d)) then
+          allocate(mt%aint1d(isizei))
+        elseif (isize < isizei) then
+          deallocate(mt%aint1d)
+          allocate(mt%aint1d(isizei))
+        endif
+        do i = 1, isizei
+          mt%aint1d(i) = mti%aint1d(i)
+        enddo
+      case(iadbl1d)
+        if (.not.associated(mt%adbl1d)) then
+          allocate(mt%adbl1d(isizei))
+        elseif (isize < isizei) then
+          deallocate(mt%adbl1d)
+          allocate(mt%adbl1d(isizei))
+        endif
+        do i = 1, isizei
+          mt%adbl1d(i) = mti%adbl1d(i)
+        enddo
+      case default
+        call allocate_error(name, origin, 0,                                    &
+        'Memory type not yet supported', 0)
+    end select
+    !
+    ! -- return
+    return
+ end subroutine setval_mt
  
 end module MemoryManagerModule
